@@ -17,6 +17,10 @@ h2 {
   margin-top: 2rem;
 }
 
+a {
+  text-decoration: none;
+}
+
 .logo {
   width: 100%;
   margin-bottom: 2rem;
@@ -97,3 +101,38 @@ h2 {
   color: #666;
   overflow
 } 
+
+.btn {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 2px solid #FF4C02;
+  color: #fff;
+  border-radius: 8px;
+  max-width: 320px;
+  margin: 20px auto;
+  cursor: pointer;
+}
+
+.btn .emoji {
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
+}
+
+.btn:hover {
+  background: rgba(255,76,2,0.1);
+}
+
+.btn:active {
+  background: #FF4C02;
+  color: #fff;
+}
+
+.btn a {
+  color: #FF4C02;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.btn:active a {
+  color: #fff;
+}
