@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "build": "next build"
   },
   "dependencies": {
     "@citizenwallet/sdk": "^2.0.44",
