@@ -4,7 +4,7 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "build": "next build"
+    "build": "npm install"
   },
   "dependencies": {
     "@citizenwallet/sdk": "^2.0.44",
