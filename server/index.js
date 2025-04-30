@@ -31,7 +31,12 @@ setInterval(() => {
     if (day !== today) {
       presentToday[day].forEach((member) => {
         try {
-          console.log(">>> Removing role", process.env.DISCORD_PRESENT_TODAY_ROLE_ID, "from", member.user.username);
+          console.log(
+            ">>> Removing role",
+            process.env.DISCORD_PRESENT_TODAY_ROLE_ID,
+            "from",
+            member.user.username
+          );
           member.roles.remove(process.env.DISCORD_PRESENT_TODAY_ROLE_ID);
         } catch (error) {
           console.error("Failed to remove role:", error);
@@ -47,7 +52,7 @@ function pickRandom(array) {
 }
 
 function pickRandomReply(user) {
-  const isEarlyBird = new Date().getHours() < ;
+  const isEarlyBird = new Date().getHours() < 9;
   const isMorning = new Date().getHours() < 12;
   const isEvening = new Date().getHours() > 18;
 
@@ -88,10 +93,12 @@ function pickRandomReply(user) {
     "Brussels is officially bilingual (French and Dutch), but over 100 languages are spoken across the city.",
     "As the de facto capital of the EU, Brussels hosts the European Commission, Parliament, and Council, employing over 40,000 EU staff.",
     "Belgium has over 1,500 beer varieties, and many iconic Lambic and Gueuze brews are produced near Brussels.",
-    "Despite its urban character, Brussels boasts more than 8 million trees in parks and boulevards, including Bois de la Cambre and the Royal Park."
+    "Despite its urban character, Brussels boasts more than 8 million trees in parks and boulevards, including Bois de la Cambre and the Royal Park.",
   ];
 
-  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandom(funFactsAboutBrussels)}`;
+  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandom(
+    funFactsAboutBrussels
+  )}`;
 }
 // Initialize the bot client
 const client = new Client({
