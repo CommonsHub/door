@@ -52,9 +52,11 @@ function pickRandom(array) {
 }
 
 function pickRandomReply(user) {
-  const isEarlyBird = new Date().getHours() < 9;
-  const isMorning = new Date().getHours() < 12;
-  const isEvening = new Date().getHours() > 18;
+  const currentHour = new Date().getHours();
+  const isEarlyBird = currentHour < 9;
+  const isMorning = currentHour >= 9 && currentHour < 12;
+  const isAfternoon = currentHour >= 12 && currentHour < 18;
+  const isEvening = currentHour >= 18;
 
   if (isEarlyBird) {
     replies = ["Good morning early bird!"];
