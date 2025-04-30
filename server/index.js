@@ -69,7 +69,17 @@ function pickRandomReply(user) {
   }
 
   const funFactsAboutBrussels = [
-    "Brussels is the capital of Belgium.",
+    "Hugo the First is the first king of the Commons Hub.",
+    "Jana the Great is the first queen of the Commons Hub.",
+    "There are 2.5 floors in the Commons Hub.",
+    "The Commons Hub is the largest common building in Brussels.",
+    "17 languages are spoken in the Commons Hub. Can you list them all?",
+    "Belgium is not a country, it's a concept.",
+    "The Commons Hub building used to be a cookie factory.",
+    "Brussels is the capital of Belgium and the capital of Europe.",
+    "There are 48 steps in the Commons Hub (I think, I might be wrong, can you count them?).",
+    "The Commons Hub is called La Maison des Communs in French.",
+    "There is another Commons Hub in the countryside of Austria. They organise every year a crypto commons event around collaborative finance.",
     "The average person spends 2 years of their life waiting for red lights to turn green.",
     "The shortest war in history was between Britain and Zanzibar on August 27, 1896. Zanzibar surrendered after 38 minutes.",
     "A single cloud can weight more than 1 million pounds.",
