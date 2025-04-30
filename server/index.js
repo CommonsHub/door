@@ -23,12 +23,84 @@ const token = process.env.DISCORD_BOT_TOKEN;
 const allowedChannelId = process.env.DISCORD_CHANNEL_ID;
 const users = {};
 
+const presentToday = {};
+
+setInterval(() => {
+  const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  Object.keys(presentToday).forEach((day) => {
+    if (day !== today) {
+      presentToday[day].forEach((member) => {
+        try {
+          console.log(">>> Removing role", process.env.DISCORD_PRESENT_TODAY_ROLE_ID, "from", member.user.username);
+          member.roles.remove(process.env.DISCORD_PRESENT_TODAY_ROLE_ID);
+        } catch (error) {
+          console.error("Failed to remove role:", error);
+        }
+      });
+      presentToday[day].length = 0;
+    }
+  });
+}, 1000 * 60 * 60 * 2);
+
+function pickRandom(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+function pickRandomReply(user) {
+  const isEarlyBird = new Date().getHours() < ;
+  const isMorning = new Date().getHours() < 12;
+  const isEvening = new Date().getHours() > 18;
+
+  if (isEarlyBird) {
+    replies = ["Good morning early bird!"];
+  } else if (isMorning) {
+    replies = ["Good morning!"];
+  } else if (isAfternoon) {
+    replies = ["Good afternoon!"];
+  } else if (isEvening) {
+    replies = ["Good evening!"];
+  }
+
+  const funFactsAboutBrussels = [
+    "Brussels is the capital of Belgium.",
+    "The average person spends 2 years of their life waiting for red lights to turn green.",
+    "The shortest war in history was between Britain and Zanzibar on August 27, 1896. Zanzibar surrendered after 38 minutes.",
+    "A single cloud can weight more than 1 million pounds.",
+    "The Eiffel Tower can be 15 cm taller during the summer due to the expansion of the iron on hot days.",
+    "A single strand of Spaghetti is called a 'Spaghetto'.",
+    "The total weight of all the ants on Earth is greater than the total weight of all the humans on the planet.",
+    "Brussels hosts the world’s largest flower carpet every two years on the Grand Place, made of over 500,000 begonias.",
+    "Victor Horta’s Art Nouveau townhouses—like Hôtel Tassel and Hôtel Solvay—pioneered the architectural style in the early 20th century.",
+    "The Galeries Royales Saint-Hubert, opened in 1847, is one of Europe’s oldest covered shopping arcades.",
+    "Besides Manneken Pis, Brussels has two companion statues: Jeanneke Pis (a girl) and Zinneke Pis (a dog).",
+    "Brussels-Midi/Zuid station is Belgium’s busiest train station and a major Eurostar hub connecting to London.",
+    "The Royal Greenhouses of Laeken, designed by Alphonse Balat, open to the public only a few weeks each spring.",
+    "Brussels waffles (light, rectangular) differ from Liège waffles (denser, sugar-studded) and are sold from street carts everywhere.",
+    "The Belgian Comic Strip Center, housed in a Victor Horta building, celebrates Belgium’s rich bande dessinée heritage.",
+    "The Palace of Justice in Brussels was the largest building constructed in the 19th century, dominating the skyline.",
+    "Each spring, the Iris Festival honors Brussels’ official flower (the yellow iris) with free concerts and guided tours.",
+    "Brussels is known as Europe’s unofficial Comics Capital, with over 50 comic murals featuring characters like Tintin and The Smurfs.",
+    "The Manneken Pis statue has a wardrobe of over 1,000 costumes, gifted by various societies.",
+    "Brussels sprouts were first cultivated around Brussels in the 13th century.",
+    "The Grand Place (Grote Markt) is famed for its gilded guildhalls and Baroque façades, deemed one of Europe’s most beautiful squares.",
+    "Brussels is home to world-renowned chocolatiers such as Neuhaus, Godiva, and Pierre Marcolini.",
+    "The Atomium, built for Expo ’58, represents an iron crystal magnified 165 billion times and offers panoramic views from 92 m high.",
+    "Brussels is officially bilingual (French and Dutch), but over 100 languages are spoken across the city.",
+    "As the de facto capital of the EU, Brussels hosts the European Commission, Parliament, and Council, employing over 40,000 EU staff.",
+    "Belgium has over 1,500 beer varieties, and many iconic Lambic and Gueuze brews are produced near Brussels.",
+    "Despite its urban character, Brussels boasts more than 8 million trees in parks and boulevards, including Bois de la Cambre and the Royal Park."
+  ];
+
+  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandom(funFactsAboutBrussels)}`;
+}
 // Initialize the bot client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildModeration,
   ],
 });
 
@@ -82,8 +154,8 @@ client.on("interactionCreate", async (interaction) => {
     const { commandName } = interaction;
 
     if (commandName === "open") {
-      await interaction.reply("Door opening!");
-      addUser(interaction.user);
+      await interaction.reply(pickRandomReply(interaction.user));
+      await addUser(interaction.user);
       openDoor(interaction.user.id, client.user.tag);
     }
   } catch (error) {
@@ -114,9 +186,9 @@ client.on("messageCreate", async (message) => {
   // Example: respond to specific messages
   if (message.content.toLowerCase().trim() === "open") {
     // console.log(JSON.stringify(message.author, null, 2));
-    addUser(message.author);
+    await addUser(message.author);
     openDoor(message.author.id, client.user.tag);
-    message.reply("Door opening!");
+    message.reply(pickRandomReply(message.author));
   }
 });
 
@@ -129,7 +201,7 @@ const SECRET = process.env.SECRET || "";
 const status_log = {};
 const doorlog = [];
 
-function addUser(user) {
+async function addUser(user) {
   users[user.id] = {
     displayName: user?.globalName || user?.displayName || user?.tag,
     username: user.username,
@@ -137,6 +209,26 @@ function addUser(user) {
     avatar:
       typeof user.avatarURL === "function" ? user.avatarURL() : user.avatarURL,
   };
+
+  const role = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
+  const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  presentToday[today] = presentToday[today] || [];
+  if (role) {
+    const guild = await client.guilds.fetch(interaction.guildId);
+
+    if (guild) {
+      const member = guild.members.cache.get(interaction.user.id);
+      if (member) {
+        try {
+          console.log(">>> Adding role", role, "to", member.user.username);
+          await member.roles.add(role);
+          presentToday[today].push(member);
+        } catch (error) {
+          console.error("Failed to add role:", error);
+        }
+      }
+    }
+  }
 }
 
 function openDoor(userid, agent) {
@@ -216,7 +308,7 @@ app.get("/open", async (req, res) => {
       avatarURL: profile?.image_medium || null,
     };
 
-    addUser(user);
+    await addUser(user);
     openDoor(connectedAccount, (profile && profile.username) || "unknown");
 
     // Send message to Discord channel
