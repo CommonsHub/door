@@ -162,7 +162,7 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "open") {
       await interaction.reply(pickRandomReply(interaction.user));
-      await addUser(interaction.user);
+      await addUser(interaction.user, interaction.guildId);
       openDoor(interaction.user.id, client.user.tag);
     }
   } catch (error) {
@@ -193,7 +193,7 @@ client.on("messageCreate", async (message) => {
   // Example: respond to specific messages
   if (message.content.toLowerCase().trim() === "open") {
     // console.log(JSON.stringify(message.author, null, 2));
-    await addUser(message.author);
+    await addUser(message.author, message.guildId);
     openDoor(message.author.id, client.user.tag);
     message.reply(pickRandomReply(message.author));
   }
@@ -208,7 +208,7 @@ const SECRET = process.env.SECRET || "";
 const status_log = {};
 const doorlog = [];
 
-async function addUser(user) {
+async function addUser(user, guildId) {
   users[user.id] = {
     displayName: user?.globalName || user?.displayName || user?.tag,
     username: user.username,
@@ -220,14 +220,14 @@ async function addUser(user) {
   const role = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
   presentToday[today] = presentToday[today] || [];
-  if (role) {
-    const guild = await client.guilds.fetch(interaction.guildId);
+  if (role && guildId) {
+    const guild = await client.guilds.fetch(guildId);
 
     if (guild) {
-      const member = guild.members.cache.get(interaction.user.id);
+      const member = guild.members.cache.get(user.id);
       if (member) {
         try {
-          console.log(">>> Adding role", role, "to", member.user.username);
+          console.log(">>> Adding role", role, "to", user.username);
           await member.roles.add(role);
           presentToday[today].push(member);
         } catch (error) {
