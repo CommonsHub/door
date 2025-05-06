@@ -59,14 +59,16 @@ function pickRandomReply(user) {
   const isEvening = currentHour >= 18;
 
   if (isEarlyBird) {
-    replies = ["Good morning early bird!"];
+    replies = ["Good morning early bird! 🐣"];
   } else if (isMorning) {
-    replies = ["Good morning!"];
+    replies = ["Good morning! ☀️"];
   } else if (isAfternoon) {
-    replies = ["Good afternoon!"];
+    replies = ["Good afternoon! 🌞"];
   } else if (isEvening) {
-    replies = ["Good evening!"];
+    replies = ["Good evening! 🌙"];
   }
+
+  console.log(">>> new Date", new Date(), "currentHour", currentHour, replies);
 
   const funFactsAboutBrussels = [
     "Hugo the First is the first king of the Commons Hub.",
@@ -271,17 +273,19 @@ function openDoor(userid, agent) {
     agent,
   });
 
-  // Set a timer to reset `isDoorOpen` after 3 seconds
+  // Set a timer to reset `isDoorOpen` after 3.5 seconds
   setTimeout(() => {
     isDoorOpen = false;
     console.log("Closing door");
-  }, 3000);
+  }, 3500);
 }
 
 setInterval(() => {
-  status_log = {};
-  console.log("Resetting status log");
-}, 1000 * 60 * 60 * 24); // reset log every 24h
+  if (new Date().getHours() === 0) {
+    status_log = {};
+    console.log(">>> Resetting status log");
+  }
+}, 1000 * 60 * 60); // reset log every 24h
 
 // Route to open the door if the correct secret is provided
 app.get("/open", async (req, res) => {
