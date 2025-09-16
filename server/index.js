@@ -14,7 +14,7 @@ const {
 const express = require("express");
 const path = require("path");
 const community = require("./cw/community.json");
-
+const crypto = require("crypto");
 const DEFAULT_AVATAR =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
 
@@ -225,10 +225,12 @@ client.on("messageCreate", async (message) => {
 // Log in to Discord
 client.login(token);
 const app = express();
+app.use(express.urlencoded({ extended: true }));
 
 let isDoorOpen = false;
 const SECRET = process.env.SECRET || "";
-const status_log = {};
+
+let status_log = {};
 const doorlog = [];
 
 async function addUser(user, guildId) {
@@ -250,19 +252,22 @@ async function addUser(user, guildId) {
       const member = guild.members.cache.get(user.id);
       if (member) {
         try {
-          console.log(">>> Adding role", role, "to", user.username);
+          console.log(">>> Adding role", role, "to", member.username);
           await member.roles.add(role);
           presentToday[today].push(member);
         } catch (error) {
           console.error("Failed to add role:", error);
         }
+      } else {
+        throw new Error(
+          `User ${user.username} (id: ${user.id}) not found in guild`
+        );
       }
     }
   }
 }
 
 function openDoor(userid, agent) {
-  const user = users[userid];
   console.log("Opening door for userid", userid, "with agent", agent);
   isDoorOpen = true;
   doorlog.push({
@@ -357,6 +362,51 @@ app.get("/open", async (req, res) => {
   } else {
     return res.send(generateForbiddenHtml(profile));
   }
+});
+
+let guild;
+const loadGuild = async function () {
+  if (process.env.DISCORD_GUILD_ID) {
+    guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
+    if (!guild) {
+      throw new Error(`Guild ${process.env.DISCORD_GUILD_ID} not found`);
+    }
+    await guild.members.fetch();
+  }
+};
+
+client.once("ready", async () => {
+  console.log(">>> Loading guild");
+  await loadGuild();
+});
+
+app.post("/open", async (req, res) => {
+  console.log(">>> Open request", req.body);
+
+  const { token, userid } = req.body;
+  const member = guild.members.cache.get(userid);
+  if (!member) {
+    return res.status(403).send("User not found");
+  }
+
+  // Verify token, should be md5 of userid and SECRET
+  const hash = crypto
+    .createHash("md5")
+    .update([guild.id, userid, SECRET].join(":"))
+    .digest("hex");
+  if (token !== hash) {
+    console.log(">>> Invalid token", token);
+    return res.status(403).send("Invalid token");
+  }
+
+  // Send message to Discord channel
+  const channel = client.channels.cache.get(allowedChannelId);
+  if (channel) {
+    await channel.send(`🚪 Door opened by <@${member.id}> via iOS shortcut 📲`);
+  }
+
+  addUser(member, guild.id);
+  openDoor(userid, member.username);
 });
 
 // Route to check if the door is open
