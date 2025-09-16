@@ -23,7 +23,10 @@ const token = process.env.DISCORD_BOT_TOKEN;
 const allowedChannelId = process.env.DISCORD_CHANNEL_ID;
 const users = {};
 
+const SECRET = process.env.SECRET || "";
+
 const presentToday = {};
+const funFacts = [];
 
 setInterval(() => {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
@@ -51,6 +54,59 @@ function pickRandom(array) {
   return array[Math.floor(Math.random() * array.length)];
 }
 
+// Pick a random fact from the array based on the score
+function pickRandomFact() {
+  // The higher the score, the more likely the fact is to be picked
+  const totalScore = funFacts.reduce((a, b) => a + b.score, 0);
+  const random = Math.random() * totalScore;
+  let cumulativeScore = 0;
+  for (const fact of funFacts) {
+    cumulativeScore += fact.score;
+    if (random <= cumulativeScore) {
+      return fact.content;
+    }
+  }
+  return funFacts[funFacts.length - 1].content;
+}
+
+async function loadFunFacts() {
+  console.log(
+    ">>> Loading fun facts from channel",
+    process.env.DISCORD_FUNFACTS_CHANNEL_ID
+  );
+  const channel = await client.channels.fetch(
+    process.env.DISCORD_FUNFACTS_CHANNEL_ID
+  );
+  if (!channel?.isTextBased()) return;
+
+  funFacts.length = 0;
+
+  const messages = await channel.messages.fetch({ limit: 100 });
+  funFacts.push(
+    ...messages.map((m) => {
+      const reactionsCount =
+        1 + m.reactions.cache.map((r) => r.count).reduce((a, b) => a + b, 0);
+      // Define a score based on the reactions count and the date of the message
+      const daysSinceCreation =
+        (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
+        (1000 * 60 * 60 * 24);
+      const score = reactionsCount / daysSinceCreation;
+
+      return {
+        content: m.content,
+        date: m.createdTimestamp,
+        daysSinceCreation,
+        score,
+      };
+    })
+  );
+  console.log(">>> ", funFacts.length, "fun facts loaded");
+}
+
+setInterval(() => {
+  loadFunFacts();
+}, 1000 * 60 * 60 * 24);
+
 function pickRandomReply(user) {
   const currentHour = new Date().getHours() + 2;
   const isEarlyBird = currentHour < 9;
@@ -68,60 +124,7 @@ function pickRandomReply(user) {
     replies = ["Good evening! 🌙"];
   }
 
-  console.log(">>> new Date", new Date(), "currentHour", currentHour, replies);
-
-  const funFactsAboutBrussels = [
-    "Hugo the First is the first king of the Commons Hub.",
-    "Jana the Great is the first queen of the Commons Hub.",
-    "There are 2.5 floors in the Commons Hub.",
-    "The Commons Hub is the largest common building in Brussels.",
-    "17 languages are spoken in the Commons Hub. Can you list them all?",
-    "A belgian university professor has his name in the bitcoin whitepaper published in 2008 (Jean-Jacques Quisquater).",
-    "Belgium is not a country, it's a concept.",
-    "The Commons Hub building used to be a cookie factory.",
-    "Brussels is the capital of Belgium and the capital of Europe. No joke.",
-    "There are 48 steps in the Commons Hub (I think, I might be wrong, can you count them?).",
-    "The Commons Hub is called La Maison des Communs in French.",
-    "If you take a part time job to take care of a sick relative, GDP goes down. If you work full time and pay someone to take care of them, GDP goes up. Don't follow the GDP.",
-    "Brussels doesn't care much about who is in power. Through the ages, empires come and go, but Brussels citizens always find a way to self-organise and make it work.",
-    "Brussels is managed by political parties whose majority of members do not live in Brussels.",
-    "The most common second language in Brussels is English.",
-    "The average age of the US congress is 58 years old, compared to 50 years old for the European Parliament. Do you feel represented now?",
-    "Belgium was one of the best performing economies during the 2008 financial crisis. Turns out not having a government for 589 days to take austerity measures was a good idea.",
-    "The most spoken languages in Brussels are French (88%), English (30%), Dutch (23%), Arabic (18%), Spanish (9%) and German (7%).",
-    "There is another Commons Hub in the countryside of Austria. They organise every year a crypto commons event around collaborative finance.",
-    "The average person spends 2 years of their life waiting for red lights to turn green.",
-    "There is no cloud. It's just somebody else's computer.",
-    "The Eiffel Tower can be 15 cm taller during the summer due to the expansion of the iron on hot days. Isn't it ironic? Don't you think?",
-    "A single strand of Spaghetti is called a 'Spaghetto'.",
-    "You can take a 15mn metro from Brussels Central to Herrmann Debroux and be in the Sonian Forest in no time. #regenwalk 🌳",
-    "Another nice regen walk: take the metro to Stockel then take the green way to Beaulieu. Then metro back to Central Station. #regenwalk 🌳",
-    "The total weight of all the ants on Earth is greater than the total weight of all the humans on the planet.",
-    "Brussels hosts the world’s largest flower carpet every two years on the Grand Place, made of over 500,000 begonias.",
-    "Victor Horta’s Art Nouveau townhouses—like Hôtel Tassel and Hôtel Solvay—pioneered the architectural style in the early 20th century.",
-    "The Galeries Royales Saint-Hubert, opened in 1847, is one of Europe’s oldest covered shopping arcades.",
-    "Besides Manneken Pis, Brussels has two companion statues: Jeanneke Pis (a girl) and Zinneke Pis (a dog). Do you know where they are?",
-    "Brussels-Midi/Zuid station is Belgium’s busiest train station and a major Eurostar hub connecting to London.",
-    "The Royal Greenhouses of Laeken, designed by Alphonse Balat, open to the public only a few weeks each spring.",
-    "Brussels waffles (light, rectangular) differ from Liège waffles (denser, sugar-studded) and are sold from street carts everywhere.",
-    "The Belgian Comic Strip Center, housed in a Victor Horta building, celebrates Belgium’s rich bande dessinée heritage.",
-    "The Palace of Justice in Brussels was the largest building constructed in the 19th century, dominating the skyline.",
-    "Each spring, the Iris Festival honors Brussels’ official flower (the yellow iris) with free concerts and guided tours.",
-    "Brussels is known as Europe’s unofficial Comics Capital, with over 50 comic murals featuring characters like Tintin and The Smurfs.",
-    "The Manneken Pis statue has a wardrobe of over 1,000 costumes, gifted by various societies.",
-    "Brussels sprouts were first cultivated around Brussels in the 13th century.",
-    "The Grand Place (Grote Markt) is famed for its gilded guildhalls and Baroque façades, deemed one of Europe’s most beautiful squares.",
-    "Brussels is home to world-renowned chocolatiers such as Neuhaus, Godiva, and Pierre Marcolini.",
-    "The Atomium, built for Expo ’58, represents an iron crystal magnified 165 billion times and offers panoramic views from 92 m high.",
-    "Brussels is officially bilingual (French and Dutch), but over 100 languages are spoken across the city.",
-    "As the de facto capital of the EU, Brussels hosts the European Commission, Parliament, and Council, employing over 40,000 EU staff.",
-    "Belgium has over 1,500 beer varieties, and many iconic Lambic and Gueuze brews are produced near Brussels.",
-    "Despite its urban character, Brussels boasts more than 8 million trees in parks and boulevards, including Bois de la Cambre and the Royal Park.",
-  ];
-
-  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandom(
-    funFactsAboutBrussels
-  )}`;
+  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandomFact}`;
 }
 // Initialize the bot client
 const client = new Client({
@@ -165,6 +168,10 @@ client.once("ready", async () => {
   console.log(`${client.user.tag} is now online!`);
   // Wait a moment before registering commands
   await registerCommands();
+  console.log(">>> Loading guild");
+  await loadGuild();
+  console.log(">>> Loading fun facts");
+  await loadFunFacts();
 });
 
 // Handle interactions (like slash commands)
@@ -228,7 +235,6 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 
 let isDoorOpen = false;
-const SECRET = process.env.SECRET || "";
 
 let status_log = {};
 const doorlog = [];
@@ -252,7 +258,7 @@ async function addUser(user, guildId) {
       const member = guild.members.cache.get(user.id);
       if (member) {
         try {
-          console.log(">>> Adding role", role, "to", member.username);
+          console.log(">>> Adding ", member.displayName, "to", role);
           await member.roles.add(role);
           presentToday[today].push(member);
         } catch (error) {
@@ -375,14 +381,7 @@ const loadGuild = async function () {
   }
 };
 
-client.once("ready", async () => {
-  console.log(">>> Loading guild");
-  await loadGuild();
-});
-
 app.post("/open", async (req, res) => {
-  console.log(">>> Open request", req.body);
-
   const { token, userid } = req.body;
   const member = guild.members.cache.get(userid);
   if (!member) {
@@ -395,7 +394,7 @@ app.post("/open", async (req, res) => {
     .update([guild.id, userid, SECRET].join(":"))
     .digest("hex");
   if (token !== hash) {
-    console.log(">>> Invalid token", token);
+    console.log(">>> /open Invalid token", token);
     return res.status(403).send("Invalid token");
   }
 
