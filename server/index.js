@@ -401,12 +401,15 @@ app.post("/open", async (req, res) => {
 
   // Send message to Discord channel
   const channel = client.channels.cache.get(allowedChannelId);
+  const msg = `🚪 Door opened by <@${member.id}> via iOS shortcut 📲`;
   if (channel) {
-    await channel.send(`🚪 Door opened by <@${member.id}> via iOS shortcut 📲`);
+    await channel.send(msg);
   }
 
   addUser(member, guild.id);
   openDoor(userid, member.username);
+
+  return res.status(200).send(msg);
 });
 
 // Route to check if the door is open
