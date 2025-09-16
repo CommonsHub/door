@@ -124,7 +124,7 @@ function pickRandomReply(user) {
     replies = ["Good evening! 🌙"];
   }
 
-  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandomFact}`;
+  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandomFact()}`;
 }
 // Initialize the bot client
 const client = new Client({
