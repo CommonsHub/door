@@ -401,7 +401,7 @@ app.post("/open", async (req, res) => {
 
   // Send message to Discord channel
   const channel = client.channels.cache.get(allowedChannelId);
-  const msg = `🚪 Door opened by <@${member.id}> via iOS shortcut 📲`;
+  const msg = `🚪 Door opened by <@${member.id}> via shortcut 📲`;
   if (channel) {
     await channel.send(msg);
   }
