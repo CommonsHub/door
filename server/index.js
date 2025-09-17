@@ -30,24 +30,25 @@ const funFacts = [];
 
 setInterval(() => {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
-  Object.keys(presentToday).forEach((day) => {
+  const presentTodayRoleId = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
+  for (const day in presentToday) {
     if (day !== today) {
-      presentToday[day].forEach((member) => {
+      for (const member of presentToday[day]) {
         try {
           console.log(
             ">>> Removing role",
-            process.env.DISCORD_PRESENT_TODAY_ROLE_ID,
+            presentTodayRoleId,
             "from",
             member.user.username
           );
-          member.roles.remove(process.env.DISCORD_PRESENT_TODAY_ROLE_ID);
+          member.roles.remove(presentTodayRoleId);
         } catch (error) {
           console.error("Failed to remove role:", error);
         }
-      });
-      presentToday[day].length = 0;
+      }
     }
-  });
+  }
+  presentToday[day].length = 0;
 }, 1000 * 60 * 60 * 2);
 
 function pickRandom(array) {
@@ -58,6 +59,8 @@ function pickRandom(array) {
 function pickRandomFact() {
   // The higher the score, the more likely the fact is to be picked
   const totalScore = funFacts.reduce((a, b) => a + b.score, 0);
+  console.log(">>> Total score", totalScore);
+  console.log(">>> Fun facts", funFacts);
   const random = Math.random() * totalScore;
   let cumulativeScore = 0;
   for (const fact of funFacts) {
@@ -87,9 +90,10 @@ async function loadFunFacts() {
       const reactionsCount =
         1 + m.reactions.cache.map((r) => r.count).reduce((a, b) => a + b, 0);
       // Define a score based on the reactions count and the date of the message
-      const daysSinceCreation =
+      const daysSinceCreation = Math.ceil(
         (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
-        (1000 * 60 * 60 * 24);
+          (1000 * 60 * 60 * 24)
+      );
       const score = reactionsCount / daysSinceCreation;
 
       return {
@@ -124,7 +128,11 @@ function pickRandomReply(user) {
     replies = ["Good evening! 🌙"];
   }
 
-  return `${pickRandom(replies)} \n**Fun fact**: ${pickRandomFact()}`;
+  const randomFact = pickRandomFact();
+
+  console.log(">>> Random fact", randomFact);
+
+  return `${pickRandom(replies)} \n**Fun fact**: ${randomFact}`;
 }
 // Initialize the bot client
 const client = new Client({
@@ -168,9 +176,7 @@ client.once("ready", async () => {
   console.log(`${client.user.tag} is now online!`);
   // Wait a moment before registering commands
   await registerCommands();
-  console.log(">>> Loading guild");
   await loadGuild();
-  console.log(">>> Loading fun facts");
   await loadFunFacts();
 });
 
@@ -248,18 +254,23 @@ async function addUser(user, guildId) {
       typeof user.avatarURL === "function" ? user.avatarURL() : user.avatarURL,
   };
 
-  const role = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
+  const presentTodayRoleId = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
   presentToday[today] = presentToday[today] || [];
-  if (role && guildId) {
+  if (presentTodayRoleId && guildId) {
     const guild = await client.guilds.fetch(guildId);
 
     if (guild) {
       const member = guild.members.cache.get(user.id);
       if (member) {
         try {
-          console.log(">>> Adding ", member.displayName, "to", role);
-          await member.roles.add(role);
+          console.log(
+            ">>> Adding ",
+            member.displayName,
+            "to",
+            presentTodayRoleId
+          );
+          await member.roles.add(presentTodayRoleId);
           presentToday[today].push(member);
         } catch (error) {
           console.error("Failed to add role:", error);
@@ -373,6 +384,7 @@ app.get("/open", async (req, res) => {
 let guild;
 const loadGuild = async function () {
   if (process.env.DISCORD_GUILD_ID) {
+    console.log(">>> Loading guild", process.env.DISCORD_GUILD_ID);
     guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
     if (!guild) {
       throw new Error(`Guild ${process.env.DISCORD_GUILD_ID} not found`);
