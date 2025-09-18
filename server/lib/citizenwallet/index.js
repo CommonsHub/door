@@ -156,3 +156,48 @@ module.exports.getProfileFromAddress = async (config, address) => {
     return null;
   }
 };
+
+module.exports.loginWithCitizenWallet = async (query) => {
+  const { sigAuthAccount, sigAuthExpiry, sigAuthSignature, sigAuthRedirect } =
+    query;
+
+  let connectedAccount;
+  if (sigAuthAccount && sigAuthExpiry && sigAuthSignature && sigAuthRedirect) {
+    try {
+      if (new Date().getTime() > new Date(sigAuthExpiry).getTime()) {
+        throw new Error("Signature expired");
+      }
+
+      const message = `Signature auth for ${sigAuthAccount} with expiry ${sigAuthExpiry} and redirect ${encodeURIComponent(
+        sigAuthRedirect
+      )}`;
+
+      const isOwner = await verifyAccountOwnership(
+        community,
+        sigAuthAccount,
+        message,
+        sigAuthSignature
+      );
+      if (!isOwner) {
+        throw new Error("Invalid signature");
+      }
+      connectedAccount = sigAuthAccount;
+    } catch (e) {
+      console.error("Failed to verify signature:", e);
+      // You might want to handle this error case appropriately
+    }
+  }
+
+  if (!connectedAccount) {
+    return { profile: null, balance: null };
+  }
+
+  const balance = await getAccountBalance(community, connectedAccount);
+
+  const decimals = community.token.decimals;
+  const balanceFormatted = Number(balance) / 10 ** decimals;
+
+  const profile = await getProfileFromAddress(community, connectedAccount);
+
+  return { profile, balance: balanceFormatted };
+};

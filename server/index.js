@@ -6,14 +6,12 @@ const {
   Routes,
   SlashCommandBuilder,
 } = require("discord.js");
-const {
-  verifyAccountOwnership,
-  getAccountBalance,
-  getProfileFromAddress,
-} = require("./cw/cw");
+const { loginWithCitizenWallet } = require("./lib/citizenwallet");
+const { sendDiscordMessage } = require("./lib/discord");
+
 const express = require("express");
 const path = require("path");
-const community = require("./cw/community.json");
+const community = require("./lib/citizenwallet/community.json");
 const crypto = require("crypto");
 const DEFAULT_AVATAR =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
@@ -111,7 +109,7 @@ async function loadFunFacts() {
 
 setInterval(() => {
   loadFunFacts();
-}, 1000 * 60 * 60 * 24);
+}, 1000 * 60 * 60 * 24); // refresh fun facts every 24 hours
 
 function pickRandomReply(user) {
   const currentHour = new Date().getHours() + 2;
@@ -148,7 +146,7 @@ const client = new Client({
   ],
 });
 
-async function checkDiscordStatus() {
+async function loginToDiscord() {
   const data = await rest.get(Routes.gatewayBot());
   if (data.remaining > 0) {
     // Log in to Discord
@@ -161,15 +159,16 @@ async function checkDiscordStatus() {
     );
     console.log(
       ">>> Reset in",
-      Math.round(Number(data.session_start_limit.reset_after) / 1000 / 60),
+      Math.ceil(Number(data.session_start_limit.reset_after) / 1000 / 60),
       "minutes"
     );
-    client.destroy();
-    process.exit(0);
+    setTimeout(() => {
+      loginToDiscord();
+    }, Number(data.session_start_limit.reset_after)); // retry in 5 minutes
   }
 }
 
-checkDiscordStatus();
+loginToDiscord();
 
 // Add this function to register the commands
 async function registerCommands() {
@@ -281,8 +280,6 @@ async function addUser(user, guildId) {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
   presentToday[today] = presentToday[today] || [];
   if (presentTodayRoleId && guildId) {
-    const guild = await client.guilds.fetch(guildId);
-
     if (guild) {
       const member = guild.members.cache.get(user.id);
       if (member) {
@@ -332,53 +329,44 @@ setInterval(() => {
   }
 }, 1000 * 60 * 60); // reset log every 24h
 
+getTokenOfTheDay = () => {
+  const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  const hash = crypto
+    .createHash("md5")
+    .update([process.env.DISCORD_GUILD_ID, today, SECRET].join(":"))
+    .digest("hex");
+  return hash;
+};
+
+app.get("/token", (req, res) => {
+  if (req.query.secret !== SECRET) {
+    return res.status(403).send("Invalid secret");
+  }
+  res.status(200).send(getTokenOfTheDay());
+});
+
 // Route to open the door if the correct secret is provided
 app.get("/open", async (req, res) => {
-  const { sigAuthAccount, sigAuthExpiry, sigAuthSignature, sigAuthRedirect } =
-    req.query;
+  const { profile, balance } = loginWithCitizenWallet(req.query);
 
-  let connectedAccount;
-  if (sigAuthAccount && sigAuthExpiry && sigAuthSignature && sigAuthRedirect) {
-    try {
-      if (new Date().getTime() > new Date(sigAuthExpiry).getTime()) {
-        throw new Error("Signature expired");
-      }
+  const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
 
-      const message = `Signature auth for ${sigAuthAccount} with expiry ${sigAuthExpiry} and redirect ${encodeURIComponent(
-        sigAuthRedirect
-      )}`;
-
-      const isOwner = await verifyAccountOwnership(
-        community,
-        sigAuthAccount,
-        message,
-        sigAuthSignature
-      );
-      if (!isOwner) {
-        throw new Error("Invalid signature");
-      }
-      connectedAccount = sigAuthAccount;
-    } catch (e) {
-      console.error("Failed to verify signature:", e);
-      // You might want to handle this error case appropriately
+  if (req.query.token) {
+    const hash = getTokenOfTheDay();
+    if (req.query.token !== hash) {
+      console.log(">>> /open Invalid token", req.query.token);
+      return res.status(403).send("Invalid token");
+    } else {
+      openDoor(today, "token");
+      sendDiscordMessage(`🚪 Door opened by using today's token`);
+      return res.send(generateOpenHtml());
     }
   }
 
-  if (!connectedAccount) {
-    return res.send(generateNoAppHtml());
-  }
-
-  const balance = await getAccountBalance(community, connectedAccount);
-
-  const decimals = community.token.decimals;
-  const balanceFormatted = Number(balance) / 10 ** decimals;
-
-  const profile = await getProfileFromAddress(community, connectedAccount);
-
-  if (balanceFormatted > 0) {
+  if (balance > 0) {
     // Create a user object that matches the expected structure
     const user = {
-      id: connectedAccount,
+      id: profile.address,
       username: profile?.username || connectedAccount.slice(0, 8),
       tag: profile?.username || connectedAccount.slice(0, 8),
       globalName: profile?.username,
@@ -388,15 +376,12 @@ app.get("/open", async (req, res) => {
     await addUser(user);
     openDoor(connectedAccount, (profile && profile.username) || "unknown");
 
-    // Send message to Discord channel
-    const channel = client.channels.cache.get(allowedChannelId);
-    if (channel) {
-      await channel.send(
-        `🚪 Door opened by ${
-          profile?.username || connectedAccount.slice(0, 8)
-        } via Citizen Wallet`
-      );
-    }
+    // Send message to Discord channel via REST
+    await sendDiscordMessage(
+      `🚪 Door opened by ${
+        profile?.username || connectedAccount.slice(0, 8)
+      } via Citizen Wallet`
+    );
 
     return res.send(generateOpenHtml(profile));
   } else {
@@ -418,30 +403,31 @@ const loadGuild = async function () {
 
 app.post("/open", async (req, res) => {
   const { token, userid } = req.body;
-  const member = guild.members.cache.get(userid);
-  if (!member) {
-    return res.status(403).send("User not found");
+
+  let member;
+  if (guild) {
+    member = guild.members.cache.get(userid);
+    if (!member) {
+      return res.status(403).send("User not found");
+    }
   }
 
   // Verify token, should be md5 of userid and SECRET
   const hash = crypto
     .createHash("md5")
-    .update([guild.id, userid, SECRET].join(":"))
+    .update([process.env.DISCORD_GUILD_ID, userid, SECRET].join(":"))
     .digest("hex");
   if (token !== hash) {
     console.log(">>> /open Invalid token", token);
     return res.status(403).send("Invalid token");
   }
 
-  // Send message to Discord channel
-  const channel = client.channels.cache.get(allowedChannelId);
+  // Send message to Discord channel via REST
   const msg = `🚪 Door opened by <@${member.id}> via shortcut 📲`;
-  if (channel) {
-    await channel.send(msg);
-  }
+  await sendDiscordMessage(msg);
 
-  addUser(member, guild.id);
-  openDoor(userid, member.username);
+  addUser(member, process.env.DISCORD_GUILD_ID);
+  openDoor(userid, member?.username);
 
   return res.status(200).send(msg);
 });
@@ -572,7 +558,7 @@ function generateOpenHtml(profile) {
   <img src="${
     profile?.image_medium || DEFAULT_AVATAR
   }" alt="Avatar" class="avatar" style="height: 100px; width: 100px; border-radius: 50%;">
-  <h1>Welcome ${profile?.username || "unknown"}!</h1>
+  <h1>Welcome ${profile?.username || "visitor"}!</h1>
   
   <h2>Door opened</h2>
   ${avatarGrid()}
