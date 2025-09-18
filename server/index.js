@@ -28,6 +28,8 @@ const SECRET = process.env.SECRET || "";
 const presentToday = {};
 const funFacts = [];
 
+const rest = new REST({ version: "10" }).setToken(token);
+
 setInterval(() => {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
   const presentTodayRoleId = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
@@ -134,6 +136,7 @@ function pickRandomReply(user) {
 
   return `${pickRandom(replies)} \n**Fun fact**: ${randomFact}`;
 }
+
 // Initialize the bot client
 const client = new Client({
   intents: [
@@ -144,6 +147,29 @@ const client = new Client({
     GatewayIntentBits.GuildModeration,
   ],
 });
+
+async function checkDiscordStatus() {
+  const data = await rest.get(Routes.gatewayBot());
+  if (data.remaining > 0) {
+    // Log in to Discord
+    console.log(">>> Logging in to Discord");
+    client.login(token);
+  } else {
+    console.log(
+      ">>> Remaining connections:",
+      data.session_start_limit.remaining
+    );
+    console.log(
+      ">>> Reset in",
+      Math.round(Number(data.session_start_limit.reset_after) / 1000 / 60),
+      "minutes"
+    );
+    client.destroy();
+    process.exit(0);
+  }
+}
+
+checkDiscordStatus();
 
 // Add this function to register the commands
 async function registerCommands() {
@@ -158,7 +184,6 @@ async function registerCommands() {
     console.log("Registering commands...");
     console.log("Bot Client ID:", client.user.id); // Debug log
 
-    const rest = new REST({ version: "10" }).setToken(token);
     console.log("Started refreshing application (/) commands.");
 
     await rest.put(Routes.applicationCommands(client.user.id), {
@@ -235,8 +260,6 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Log in to Discord
-client.login(token);
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
