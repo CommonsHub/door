@@ -59,8 +59,6 @@ function pickRandom(array) {
 function pickRandomFact() {
   // The higher the score, the more likely the fact is to be picked
   const totalScore = funFacts.reduce((a, b) => a + b.score, 0);
-  console.log(">>> Total score", totalScore);
-  console.log(">>> Fun facts", funFacts);
   const random = Math.random() * totalScore;
   let cumulativeScore = 0;
   for (const fact of funFacts) {
@@ -247,7 +245,6 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Add this event listener after your other client.on events
 client.on("messageCreate", async (message) => {
   // Ignore messages from bots
   if (message.author.bot) return;
