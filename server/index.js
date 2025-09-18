@@ -77,34 +77,38 @@ async function loadFunFacts() {
     ">>> Loading fun facts from channel",
     process.env.DISCORD_FUNFACTS_CHANNEL_ID
   );
-  const channel = await client.channels.fetch(
-    process.env.DISCORD_FUNFACTS_CHANNEL_ID
-  );
-  if (!channel?.isTextBased()) return;
+  try {
+    const channel = await client.channels.fetch(
+      process.env.DISCORD_FUNFACTS_CHANNEL_ID
+    );
+    if (!channel?.isTextBased()) return;
 
-  funFacts.length = 0;
+    funFacts.length = 0;
 
-  const messages = await channel.messages.fetch({ limit: 100 });
-  funFacts.push(
-    ...messages.map((m) => {
-      const reactionsCount =
-        1 + m.reactions.cache.map((r) => r.count).reduce((a, b) => a + b, 0);
-      // Define a score based on the reactions count and the date of the message
-      const daysSinceCreation = Math.ceil(
-        (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
-          (1000 * 60 * 60 * 24)
-      );
-      const score = reactionsCount / daysSinceCreation;
+    const messages = await channel.messages.fetch({ limit: 100 });
+    funFacts.push(
+      ...messages.map((m) => {
+        const reactionsCount =
+          1 + m.reactions.cache.map((r) => r.count).reduce((a, b) => a + b, 0);
+        // Define a score based on the reactions count and the date of the message
+        const daysSinceCreation = Math.ceil(
+          (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        const score = reactionsCount / daysSinceCreation;
 
-      return {
-        content: m.content,
-        date: m.createdTimestamp,
-        daysSinceCreation,
-        score,
-      };
-    })
-  );
-  console.log(">>> ", funFacts.length, "fun facts loaded");
+        return {
+          content: m.content,
+          date: m.createdTimestamp,
+          daysSinceCreation,
+          score,
+        };
+      })
+    );
+    console.log(">>> ", funFacts.length, "fun facts loaded");
+  } catch (error) {
+    console.error("Failed to load fun facts:", error.rawError.message);
+  }
 }
 
 setInterval(() => {
@@ -148,9 +152,13 @@ const client = new Client({
 
 async function loginToDiscord() {
   const data = await rest.get(Routes.gatewayBot());
-  if (data.remaining > 0) {
+  if (data.session_start_limit.remaining > 100) {
     // Log in to Discord
     console.log(">>> Logging in to Discord");
+    console.log(
+      ">>> Remaining connections:",
+      data.session_start_limit.remaining
+    );
     client.login(token);
   } else {
     console.log(
@@ -164,7 +172,7 @@ async function loginToDiscord() {
     );
     setTimeout(() => {
       loginToDiscord();
-    }, Number(data.session_start_limit.reset_after)); // retry in 5 minutes
+    }, Math.max(1000 * 60, Number(data.session_start_limit.reset_after))); // retry in 5 minutes
   }
 }
 
