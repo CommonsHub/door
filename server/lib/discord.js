@@ -14,4 +14,33 @@ async function sendDiscordMessage(content) {
   }
 }
 
-module.exports = { sendDiscordMessage };
+// use the rest api to get the members of the role
+async function getMembers(guildId, roleId) {
+  const all = [];
+  let after = "0";
+  const limit = 1000;
+
+  while (true) {
+    const params = new URLSearchParams({ limit: String(limit), after });
+    const page = await rest.get(Routes.guildMembers(guildId), {
+      query: params,
+    });
+
+    if (!page.length) break;
+    all.push(...page);
+    after = page[page.length - 1].user.id;
+    if (page.length < limit) break;
+  }
+
+  const roleMembers = roleId
+    ? all.filter((m) => m.roles?.includes(roleId))
+    : all;
+  return roleMembers;
+}
+
+async function removeRole(guild, roleId, memberId) {
+  console.log(">>> discord rest api: Removing role", roleId, "from", memberId);
+  await rest.delete(Routes.guildMemberRole(guild, memberId, roleId));
+}
+
+module.exports = { sendDiscordMessage, getMembers, removeRole };

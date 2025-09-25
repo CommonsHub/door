@@ -7,7 +7,7 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 const { loginWithCitizenWallet } = require("./lib/citizenwallet");
-const { sendDiscordMessage } = require("./lib/discord");
+const { sendDiscordMessage, getMembers, removeRole } = require("./lib/discord");
 
 const express = require("express");
 const path = require("path");
@@ -28,28 +28,48 @@ const funFacts = [];
 
 const rest = new REST({ version: "10" }).setToken(token);
 
-setInterval(() => {
-  const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
+async function resetPresentToday() {
+  const d = new Date();
+
+  if (d.getHours() !== 0) {
+    return;
+  }
+
+  const today = d.toISOString().split("T")[0].replace(/-/g, "");
   const presentTodayRoleId = process.env.DISCORD_PRESENT_TODAY_ROLE_ID;
-  for (const day in presentToday) {
-    if (day !== today) {
-      for (const member of presentToday[day]) {
-        try {
-          console.log(
-            ">>> Removing role",
-            presentTodayRoleId,
-            "from",
-            member.user.username
-          );
-          member.roles.remove(presentTodayRoleId);
-        } catch (error) {
-          console.error("Failed to remove role:", error);
-        }
-      }
+  // get list of members of the role
+  const members = await getMembers(
+    process.env.DISCORD_GUILD_ID,
+    presentTodayRoleId
+  );
+
+  console.log(">>> Resetting present today for", members.length, "members");
+  for (const member of members) {
+    try {
+      console.log(
+        ">>> Removing role",
+        presentTodayRoleId,
+        "from",
+        member.user.username
+      );
+      await removeRole(
+        process.env.DISCORD_GUILD_ID,
+        presentTodayRoleId,
+        member.user.id
+      );
+    } catch (error) {
+      console.error("Failed to remove role:", error);
     }
   }
-  presentToday[day].length = 0;
-}, 1000 * 60 * 60 * 2);
+
+  if (presentToday[today]?.length > 0) {
+    presentToday[today].length = 0;
+  }
+}
+
+setInterval(() => {
+  resetPresentToday();
+}, 1000 * 60 * 60 * 1);
 
 function pickRandom(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -85,23 +105,26 @@ async function loadFunFacts() {
 
     const messages = await channel.messages.fetch({ limit: 100 });
     funFacts.push(
-      ...messages.map((m) => {
-        const reactionsCount =
-          1 + m.reactions.cache.map((r) => r.count).reduce((a, b) => a + b, 0);
-        // Define a score based on the reactions count and the date of the message
-        const daysSinceCreation = Math.ceil(
-          (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-        const score = reactionsCount / daysSinceCreation;
+      ...messages
+        .filter((m) => m.type === 0)
+        .map((m) => {
+          const reactionsCount =
+            1 +
+            m.reactions.cache.map((r) => r.count).reduce((a, b) => a + b, 0);
+          // Define a score based on the reactions count and the date of the message
+          const daysSinceCreation = Math.ceil(
+            (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
+              (1000 * 60 * 60 * 24)
+          );
+          const score = reactionsCount / daysSinceCreation;
 
-        return {
-          content: m.content,
-          date: m.createdTimestamp,
-          daysSinceCreation,
-          score,
-        };
-      })
+          return {
+            content: m.content,
+            date: m.createdTimestamp,
+            daysSinceCreation,
+            score,
+          };
+        })
     );
     console.log(">>> ", funFacts.length, "fun facts loaded");
   } catch (error) {
@@ -390,7 +413,11 @@ app.get("/open", async (req, res) => {
 
     return res.send(generateOpenHtml(profile));
   } else {
-    return res.send(generateForbiddenHtml(profile));
+    if (req.query.sigAuthAccount) {
+      return res.send(generateForbiddenHtml(profile));
+    } else {
+      return res.send(generateNoAppHtml());
+    }
   }
 });
 
