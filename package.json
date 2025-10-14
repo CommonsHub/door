@@ -2,6 +2,7 @@
   "name": "door-control-server",
   "version": "1.0.0",
   "main": "server/index.js",
+  "type": "module",
   "scripts": {
     "start": "node server/index.js",
     "build": "npm install"

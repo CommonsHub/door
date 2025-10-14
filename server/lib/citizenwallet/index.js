@@ -1,25 +1,17 @@
-const erc20Abi = require("./ERC20.abi.json");
-const accountAbi = require("./Account.abi.json");
-const safeAccountAbi = require("./Safe.abi.json");
-const profileContractAbi = require("./Profile.abi.json");
-const {
-  JsonRpcProvider,
-  Contract,
-  verifyMessage,
-  hashMessage,
-} = require("ethers");
+import { loadJSON } from "../utils.js";
+import { JsonRpcProvider, Contract, hashMessage } from "ethers";
 
-module.exports.verifyAccountOwnership = async (
+const erc20Abi = loadJSON("lib/citizenwallet/ERC20.abi.json");
+const accountAbi = loadJSON("lib/citizenwallet/Account.abi.json");
+const safeAccountAbi = loadJSON("lib/citizenwallet/Safe.abi.json");
+const profileContractAbi = loadJSON("lib/citizenwallet/Profile.abi.json");
+
+export const verifyAccountOwnership = async (
   config,
   accountAddress,
   message,
   signature
 ) => {
-  const recoveredAddress = verifyMessage(message, signature);
-  if (recoveredAddress.toLowerCase() === accountAddress.toLowerCase()) {
-    return true;
-  }
-
   try {
     const rpc = new JsonRpcProvider(config.node.url);
     const contract = new Contract(accountAddress, accountAbi, rpc);
@@ -59,7 +51,7 @@ module.exports.verifyAccountOwnership = async (
   return false;
 };
 
-module.exports.getAccountBalance = async (config, address) => {
+export const getAccountBalance = async (config, address) => {
   const rpc = new JsonRpcProvider(config.node.url);
   const contract = new Contract(config.token.address, erc20Abi, rpc);
 
@@ -138,7 +130,7 @@ const getProfileFromId = async (config, id) => {
   }
 };
 
-module.exports.getProfileFromAddress = async (config, address) => {
+export const getProfileFromAddress = async (config, address) => {
   const rpc = new JsonRpcProvider(config.node.url);
 
   const contract = new Contract(
@@ -157,7 +149,7 @@ module.exports.getProfileFromAddress = async (config, address) => {
   }
 };
 
-module.exports.loginWithCitizenWallet = async (query) => {
+export const loginWithCitizenWallet = async (query) => {
   const { sigAuthAccount, sigAuthExpiry, sigAuthSignature, sigAuthRedirect } =
     query;
 

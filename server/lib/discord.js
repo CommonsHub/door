@@ -1,9 +1,21 @@
-const { REST, Routes } = require("discord.js");
+import dotenv from "dotenv";
+dotenv.config();
+
+import { REST, Routes } from "discord.js";
 const token = process.env.DISCORD_BOT_TOKEN;
-const rest = new REST({ version: "10" }).setToken(token);
 const channelId = process.env.DISCORD_CHANNEL_ID;
 
-async function sendDiscordMessage(content) {
+if (!token) {
+  throw new Error("DISCORD_BOT_TOKEN is not set");
+}
+
+if (!channelId) {
+  throw new Error("DISCORD_CHANNEL_ID is not set");
+}
+
+const rest = new REST({ version: "10" }).setToken(token);
+
+export async function sendDiscordMessage(content) {
   if (!content) return;
   try {
     await rest.post(Routes.channelMessages(channelId), {
@@ -15,7 +27,7 @@ async function sendDiscordMessage(content) {
 }
 
 // use the rest api to get the members of the role
-async function getMembers(guildId, roleId) {
+export async function getMembers(guildId, roleId) {
   const all = [];
   let after = "0";
   const limit = 1000;
@@ -38,9 +50,7 @@ async function getMembers(guildId, roleId) {
   return roleMembers;
 }
 
-async function removeRole(guild, roleId, memberId) {
+export async function removeRole(guild, roleId, memberId) {
   console.log(">>> discord rest api: Removing role", roleId, "from", memberId);
   await rest.delete(Routes.guildMemberRole(guild, memberId, roleId));
 }
-
-module.exports = { sendDiscordMessage, getMembers, removeRole };

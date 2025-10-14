@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Coworkers",
+    "roleId": "1356973314794328254",
+    "description": "Access to the Commons Hub Brussels for the Coworkers",
+    "daysOfWeek": "anytime",
+    "timeRange": "anytime"
+  },
+  {
+    "name": "Shifters",
+    "roleId": "1356972890540736725",
+    "description": "Access to the Commons Hub Brussels for the Shifters",
+    "daysOfWeek": "anytime",
+    "timeRange": "anytime"
+  },
+  {
+    "name": "Members",
+    "roleId": "1280559675292778617",
+    "description": "Access to the Commons Hub Brussels for the Members",
+    "daysOfWeek": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday"
+    ],
+    "timeRange": "9-19"
+  },
+  {
+    "name": "Improcollective",
+    "roleId": "1427634499075964968",
+    "description": "Access to the Commons Hub Brussels for the Improcollective",
+    "daysOfWeek": [
+      "Tuesday"
+    ],
+    "timeRange": "18-23"
+  }
+]

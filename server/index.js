@@ -1,18 +1,27 @@
-require("dotenv").config();
-const {
+import dotenv from "dotenv";
+dotenv.config();
+
+import {
   Client,
   GatewayIntentBits,
   REST,
   Routes,
   SlashCommandBuilder,
-} = require("discord.js");
-const { loginWithCitizenWallet } = require("./lib/citizenwallet");
-const { sendDiscordMessage, getMembers, removeRole } = require("./lib/discord");
+} from "discord.js";
+import { loginWithCitizenWallet } from "./lib/citizenwallet/index.js";
+import { sendDiscordMessage, getMembers, removeRole } from "./lib/discord.js";
+import { loadJSON } from "./lib/utils.js";
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import crypto from "crypto";
 
-const express = require("express");
-const path = require("path");
-const community = require("./lib/citizenwallet/community.json");
-const crypto = require("crypto");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const community = loadJSON("./lib/citizenwallet/community.json");
+
 const DEFAULT_AVATAR =
   "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
 
@@ -22,11 +31,101 @@ const allowedChannelId = process.env.DISCORD_CHANNEL_ID;
 const users = {};
 
 const SECRET = process.env.SECRET || "";
+const DRY_RUN = process.env.DRY_RUN === "true";
 
 const presentToday = {};
 const funFacts = [];
 
 const rest = new REST({ version: "10" }).setToken(token);
+
+const accessRoles = loadJSON("./access_roles.json");
+
+const userIdToRoles = {};
+
+const reloadAccessRoles = async () => {
+  for (const role of accessRoles) {
+    const members = await getMembers(process.env.DISCORD_GUILD_ID, role.roleId);
+    role.memberIds = [];
+    for (const member of members) {
+      userIdToRoles[member.user.id] = userIdToRoles[member.user.id] || [];
+      userIdToRoles[member.user.id].push(role.roleId);
+      role.memberIds.push(member.user.id);
+    }
+    if (role.timeRange !== "anytime") {
+      const hourRange = role.timeRange.split("-");
+      role.hourRange = [parseInt(hourRange[0]), parseInt(hourRange[1])];
+    }
+  }
+  console.log(">>> Access roles", accessRoles);
+};
+
+const daysOfWeek = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+function getOpeningHours(roleId) {
+  const role = accessRoles.find((r) => r.roleId === roleId);
+  if (!role) {
+    return "never";
+  }
+  let days = "";
+  if (role.daysOfWeek === "anytime" && role.timeRange === "anytime") {
+    return "anytime";
+  }
+  if (role.daysOfWeek === "anytime") {
+    days = "any day";
+  } else {
+    days = `on ${role.daysOfWeek.join(", ")}`;
+  }
+  let hours = "";
+  if (role.timeRange === "anytime") {
+    hours = "anytime";
+  } else {
+    hours = `between ${role.hourRange[0]} and ${role.hourRange[1]}`;
+  }
+  return `${days} ${hours}`;
+}
+
+function hasAccess(userid) {
+  const userRoles = userIdToRoles[userid];
+  const currentDay = daysOfWeek[new Date().getDay()];
+  const currentHour = new Date().getHours();
+  const openRoles = accessRoles.filter(
+    (r) =>
+      (r.timeRange === "anytime" && r.daysOfWeek === "anytime") ||
+      ((r.daysOfWeek === "anytime" || r.daysOfWeek.includes(currentDay)) &&
+        currentHour >= r.hourRange[0] &&
+        currentHour <= r.hourRange[1])
+  );
+  if (!userRoles || userRoles.length === 0) {
+    throw new Error(
+      "You don't have access to the Commons Hub Brussels. Become a member to access the door."
+    );
+  }
+  if (openRoles.some((r) => r.memberIds.includes(userid))) {
+    return true;
+  }
+
+  const openingHours = userRoles
+    .map(
+      (roleId) =>
+        `as ${
+          accessRoles.find((r) => r.roleId === roleId)?.name
+        } ${getOpeningHours(roleId)}`
+    )
+    .join(", and ");
+  throw new Error(
+    `You have access to the Commons Hub Brussels ${openingHours}`
+  );
+}
+
+reloadAccessRoles();
 
 async function resetPresentToday() {
   const d = new Date();
@@ -69,7 +168,8 @@ async function resetPresentToday() {
 
 setInterval(() => {
   resetPresentToday();
-}, 1000 * 60 * 60 * 1);
+  reloadAccessRoles();
+}, 1000 * 60 * 60 * 1); // reset present today every hour
 
 function pickRandom(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -233,42 +333,7 @@ client.once("ready", async () => {
   await loadFunFacts();
 });
 
-// Handle interactions (like slash commands)
-client.on("interactionCreate", async (interaction) => {
-  // Check if the interaction is a command and if it comes from the allowed channel
-  if (!interaction.isCommand()) return;
-
-  try {
-    // Only respond if the interaction is in the allowed channel
-    if (interaction.channelId !== allowedChannelId) {
-      return interaction.reply({
-        content: "This bot can only be used in a specific channel!",
-        ephemeral: true,
-      });
-    }
-
-    const { commandName } = interaction;
-
-    if (commandName === "open") {
-      await interaction.reply(pickRandomReply(interaction.user));
-      await addUser(interaction.user, interaction.guildId);
-      openDoor(interaction.user.id, client.user.tag);
-    }
-  } catch (error) {
-    console.error("Error handling interaction:", error);
-    // Try to respond to the user if we haven't already
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction
-        .reply({
-          content: "There was an error processing your command!",
-          ephemeral: true,
-        })
-        .catch(console.error);
-    }
-  }
-});
-
-client.on("messageCreate", async (message) => {
+async function handleMessage(message) {
   // Ignore messages from bots
   if (message.author.bot) return;
 
@@ -281,13 +346,67 @@ client.on("messageCreate", async (message) => {
   // Example: respond to specific messages
   if (message.content.toLowerCase().trim() === "open") {
     // console.log(JSON.stringify(message.author, null, 2));
-    await addUser(message.author, message.guildId);
-    openDoor(message.author.id, client.user.tag);
-    message.reply(pickRandomReply(message.author));
+    try {
+      if (hasAccess(message.author.id)) {
+        await addUser(message.author, message.guildId);
+        openDoor(message.author.id, client.user.tag);
+        const roles = userIdToRoles[message.author.id];
+        const firstRole = accessRoles.find((r) => r.roleId === roles[0]);
+        const reply = `Welcome ${message.author.displayName}! As a ${
+          firstRole.name
+        }, you can open the door ${getOpeningHours(firstRole.roleId)}`;
+
+        if (DRY_RUN) {
+          console.log(">>> DRY RUN: ", reply);
+          return;
+        }
+        message.reply(`${reply} \n${pickRandomReply(message.author)}`);
+      }
+    } catch (error) {
+      if (DRY_RUN) {
+        console.log(">>> DRY RUN: ", error.message);
+        return;
+      }
+      message.reply(error.message);
+    }
   }
-});
+}
+
+client.on("messageCreate", handleMessage);
+
+setTimeout(() => {
+  handleMessage({
+    author: {
+      id: "1423384621923569794",
+      displayName: "Improcollective Member",
+    },
+    channelId: allowedChannelId,
+    content: "open",
+  });
+}, 1000 * 4);
+setTimeout(() => {
+  handleMessage({
+    author: {
+      id: "689614876515237925",
+      displayName: "Coworker Member",
+    },
+    channelId: allowedChannelId,
+    content: "open",
+  });
+}, 1000 * 5);
+setTimeout(() => {
+  handleMessage({
+    author: {
+      id: "915915179726872647",
+      displayName: "Member",
+    },
+    channelId: allowedChannelId,
+    content: "open",
+  });
+}, 1000 * 6);
 
 const app = express();
+
 app.use(express.urlencoded({ extended: true }));
 
 let isDoorOpen = false;
@@ -357,7 +476,7 @@ setInterval(() => {
   }
 }, 1000 * 60 * 60); // reset log every 24h
 
-getTokenOfTheDay = () => {
+const getTokenOfTheDay = () => {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
   const hash = crypto
     .createHash("md5")
@@ -386,7 +505,7 @@ app.get("/open", async (req, res) => {
       return res.status(403).send("Invalid token");
     } else {
       openDoor(today, "token");
-      sendDiscordMessage(`🚪 Door opened by using today's token`);
+      sendDiscordMessage(`🚪 Door opened using today's token`);
       return res.send(generateOpenHtml());
     }
   }
@@ -450,7 +569,7 @@ app.post("/open", async (req, res) => {
     .update([process.env.DISCORD_GUILD_ID, userid, SECRET].join(":"))
     .digest("hex");
   if (token !== hash) {
-    console.log(">>> /open Invalid token", token);
+    console.log(">>> /open Invalid token", token, hash);
     return res.status(403).send("Invalid token");
   }
 
@@ -717,4 +836,4 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-module.exports = app;
+export default app;
