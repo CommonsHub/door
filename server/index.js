@@ -237,27 +237,11 @@ setInterval(() => {
 }, 1000 * 60 * 60 * 24); // refresh fun facts every 24 hours
 
 function pickRandomReply(user) {
-  const currentHour = new Date().getHours() + 2;
-  const isEarlyBird = currentHour < 9;
-  const isMorning = currentHour >= 9 && currentHour < 12;
-  const isAfternoon = currentHour >= 12 && currentHour < 18;
-  const isEvening = currentHour >= 18;
-
-  if (isEarlyBird) {
-    replies = ["Good morning early bird! 🐣"];
-  } else if (isMorning) {
-    replies = ["Good morning! ☀️"];
-  } else if (isAfternoon) {
-    replies = ["Good afternoon! 🌞"];
-  } else if (isEvening) {
-    replies = ["Good evening! 🌙"];
-  }
-
   const randomFact = pickRandomFact();
 
   console.log(">>> Random fact", randomFact);
 
-  return `${pickRandom(replies)} \n**Fun fact**: ${randomFact}`;
+  return `\n**Fun fact**: ${randomFact}`;
 }
 
 // Initialize the bot client
@@ -350,9 +334,28 @@ async function handleMessage(message) {
       if (hasAccess(message.author.id)) {
         await addUser(message.author, message.guildId);
         openDoor(message.author.id, client.user.tag);
+
+        const currentHour = new Date().getHours() + 2;
+        const isEarlyBird = currentHour < 9;
+        const isMorning = currentHour >= 9 && currentHour < 12;
+        const isAfternoon = currentHour >= 12 && currentHour < 18;
+        const isEvening = currentHour >= 18;
+
+        let greeting = "";
+
+        if (isEarlyBird) {
+          greeting = "Good morning early bird! 🐣";
+        } else if (isMorning) {
+          greeting = "Good morning! ☀️";
+        } else if (isAfternoon) {
+          greeting = "Good afternoon! 🌞";
+        } else if (isEvening) {
+          greeting = "Good evening! 🌙";
+        }
+
         const roles = userIdToRoles[message.author.id];
         const firstRole = accessRoles.find((r) => r.roleId === roles[0]);
-        const reply = `Welcome ${message.author.displayName}! As a ${
+        const reply = `${greeting}\nAs a ${
           firstRole.name
         }, you can open the door ${getOpeningHours(firstRole.roleId)}`;
 
