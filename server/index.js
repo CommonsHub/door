@@ -374,37 +374,6 @@ async function handleMessage(message) {
 
 client.on("messageCreate", handleMessage);
 
-setTimeout(() => {
-  handleMessage({
-    author: {
-      id: "1423384621923569794",
-      displayName: "Improcollective Member",
-    },
-    channelId: allowedChannelId,
-    content: "open",
-  });
-}, 1000 * 4);
-setTimeout(() => {
-  handleMessage({
-    author: {
-      id: "689614876515237925",
-      displayName: "Coworker Member",
-    },
-    channelId: allowedChannelId,
-    content: "open",
-  });
-}, 1000 * 5);
-setTimeout(() => {
-  handleMessage({
-    author: {
-      id: "915915179726872647",
-      displayName: "Member",
-    },
-    channelId: allowedChannelId,
-    content: "open",
-  });
-}, 1000 * 6);
-
 const app = express();
 
 app.use(express.urlencoded({ extended: true }));
