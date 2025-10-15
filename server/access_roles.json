@@ -16,13 +16,15 @@
   {
     "name": "Member",
     "roleId": "1280559675292778617",
-    "description": "Members can open the door during the week between 8am and 7pm",
+    "description": "Members can open the door any day between 8am and 7pm",
     "daysOfWeek": [
       "Monday",
       "Tuesday",
       "Wednesday",
       "Thursday",
-      "Friday"
+      "Friday",
+      "Saturday",
+      "Sunday"
     ],
     "timeRange": "8-19"
   },
