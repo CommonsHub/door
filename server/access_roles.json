@@ -1,22 +1,22 @@
 [
   {
-    "name": "Coworkers",
+    "name": "Coworker",
     "roleId": "1356973314794328254",
-    "description": "Access to the Commons Hub Brussels for the Coworkers",
+    "description": "Coworkers can open the door anytime",
     "daysOfWeek": "anytime",
     "timeRange": "anytime"
   },
   {
-    "name": "Shifters",
+    "name": "Shifter",
     "roleId": "1356972890540736725",
-    "description": "Access to the Commons Hub Brussels for the Shifters",
+    "description": "Shifters can open the door anytime",
     "daysOfWeek": "anytime",
     "timeRange": "anytime"
   },
   {
-    "name": "Members",
+    "name": "Member",
     "roleId": "1280559675292778617",
-    "description": "Access to the Commons Hub Brussels for the Members",
+    "description": "Members can open the door during the week between 8am and 7pm",
     "daysOfWeek": [
       "Monday",
       "Tuesday",
@@ -24,12 +24,12 @@
       "Thursday",
       "Friday"
     ],
-    "timeRange": "9-19"
+    "timeRange": "8-19"
   },
   {
     "name": "Improcollective",
     "roleId": "1427634499075964968",
-    "description": "Access to the Commons Hub Brussels for the Improcollective",
+    "description": "Members of the Improcollective can open the door on Tuesdays between 6 and 11pm",
     "daysOfWeek": [
       "Tuesday"
     ],

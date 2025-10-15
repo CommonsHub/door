@@ -111,18 +111,7 @@ function hasAccess(userid) {
   if (openRoles.some((r) => r.memberIds.includes(userid))) {
     return true;
   }
-
-  const openingHours = userRoles
-    .map(
-      (roleId) =>
-        `as ${
-          accessRoles.find((r) => r.roleId === roleId)?.name
-        } ${getOpeningHours(roleId)}`
-    )
-    .join(", and ");
-  throw new Error(
-    `You have access to the Commons Hub Brussels ${openingHours}`
-  );
+  return false;
 }
 
 reloadAccessRoles();
@@ -241,7 +230,7 @@ function pickRandomReply(user) {
 
   console.log(">>> Random fact", randomFact);
 
-  return `\n**Fun fact**: ${randomFact}`;
+  return `**Fun fact**: ${randomFact}`;
 }
 
 // Initialize the bot client
@@ -331,6 +320,8 @@ async function handleMessage(message) {
   if (message.content.toLowerCase().trim() === "open") {
     // console.log(JSON.stringify(message.author, null, 2));
     try {
+      const roles = userIdToRoles[message.author.id];
+      const firstRole = accessRoles.find((r) => r.roleId === roles[0]);
       if (hasAccess(message.author.id)) {
         await addUser(message.author, message.guildId);
         openDoor(message.author.id, client.user.tag);
@@ -344,26 +335,27 @@ async function handleMessage(message) {
         let greeting = "";
 
         if (isEarlyBird) {
-          greeting = "Good morning early bird! 🐣";
+          greeting = `Good morning early bird! 🐣`;
         } else if (isMorning) {
-          greeting = "Good morning! ☀️";
+          greeting = `Good morning ${message.author.displayName}! ☀️`;
         } else if (isAfternoon) {
-          greeting = "Good afternoon! 🌞";
+          greeting = `Good afternoon ${message.author.displayName}! 🌞`;
         } else if (isEvening) {
-          greeting = "Good evening! 🌙";
+          greeting = `Good evening ${message.author.displayName}! 🌙`;
         }
 
-        const roles = userIdToRoles[message.author.id];
-        const firstRole = accessRoles.find((r) => r.roleId === roles[0]);
-        const reply = `${greeting}\nAs a ${
-          firstRole.name
-        }, you can open the door ${getOpeningHours(firstRole.roleId)}`;
+        const reply = `${greeting} (${firstRole.description})`;
 
         if (DRY_RUN) {
           console.log(">>> DRY RUN: ", reply);
           return;
         }
         message.reply(`${reply} \n${pickRandomReply(message.author)}`);
+      } else {
+        message.reply(
+          "You don't have access to the Commons Hub Brussels. Become a member to access the door."
+        );
+        return;
       }
     } catch (error) {
       if (DRY_RUN) {
