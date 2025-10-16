@@ -56,7 +56,7 @@ const reloadAccessRoles = async () => {
       role.hourRange = [parseInt(hourRange[0]), parseInt(hourRange[1])];
     }
   }
-  console.log(">>> Access roles", accessRoles);
+  console.log(">>> Access roles loaded", accessRoles);
 };
 
 const daysOfWeek = [
@@ -103,14 +103,25 @@ function hasAccess(userid) {
         currentHour >= r.hourRange[0] &&
         currentHour <= r.hourRange[1])
   );
+  console.log(
+    ">>> openRoles",
+    openRoles.map((r) => r.name)
+  );
   if (!userRoles || userRoles.length === 0) {
-    throw new Error(
-      "You don't have access to the Commons Hub Brussels. Become a member to access the door."
-    );
+    console.log(">>> User", userid, "has no roles");
+    return false;
   }
   if (openRoles.some((r) => r.memberIds.includes(userid))) {
     return true;
   }
+  console.log(
+    ">>> User",
+    userid,
+    "has no access",
+    roles,
+    "openRoles",
+    openRoles
+  );
   return false;
 }
 
@@ -366,6 +377,18 @@ async function handleMessage(message) {
     }
   }
 }
+
+// setTimeout(() => {
+//   console.log(">>> Testing message");
+//   handleMessage({
+//     author: {
+//       id: "1412484977211473942",
+//       displayName: "Inge",
+//     },
+//     channelId: allowedChannelId,
+//     content: "open",
+//   });
+// }, 1000 * 4);
 
 client.on("messageCreate", handleMessage);
 
