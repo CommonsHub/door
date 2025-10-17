@@ -556,7 +556,11 @@ app.post("/open", async (req, res) => {
     .update([process.env.DISCORD_GUILD_ID, userid, SECRET].join(":"))
     .digest("hex");
   if (token !== hash) {
-    console.log(">>> /open Invalid token", token, hash);
+    if (req.host === "localhost" && SECRET) {
+      console.log(">>> /open Invalid token", token, hash);
+    } else {
+      console.log(">>> /open Invalid token", token);
+    }
     return res.status(403).send("Invalid token");
   }
 
@@ -564,8 +568,11 @@ app.post("/open", async (req, res) => {
   const msg = `🚪 Door opened by <@${member.id}> via shortcut 📲`;
   await sendDiscordMessage(msg);
 
-  addUser(member, process.env.DISCORD_GUILD_ID);
-  openDoor(userid, member?.username);
+  addUser(member.user, process.env.DISCORD_GUILD_ID);
+  openDoor(
+    userid,
+    member.user.displayName || member.user.globalName || member.user.username
+  );
 
   return res.status(200).send(msg);
 });
