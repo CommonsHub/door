@@ -36,5 +36,12 @@
       "Tuesday"
     ],
     "timeRange": "18-23"
+  },
+  {
+    "name": "Building Manager",
+    "roleId": "1429117193899081769",
+    "description": "Building Manager can open the door anytime",
+    "daysOfWeek": "anytime",
+    "timeRange": "anytime"
   }
 ]
