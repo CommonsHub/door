@@ -118,7 +118,8 @@ function hasAccess(userid) {
     ">>> User",
     userid,
     "has no access",
-    roles,
+    "userRoles",
+    userRoles,
     "openRoles",
     openRoles
   );
@@ -382,11 +383,14 @@ async function handleMessage(message) {
 //   console.log(">>> Testing message");
 //   handleMessage({
 //     author: {
-//       id: "1412484977211473942",
-//       displayName: "Inge",
+//       id: "182155649612906497",
+//       displayName: "Filip",
 //     },
 //     channelId: allowedChannelId,
 //     content: "open",
+//     reply: (message) => {
+//       console.log(">>> Reply: ", message);
+//     },
 //   });
 // }, 1000 * 4);
 
