@@ -36,6 +36,10 @@ const DRY_RUN = process.env.DRY_RUN === "true";
 const presentToday = {};
 const funFacts = [];
 
+const d = new Date();
+console.log(">>> door started", d.toISOString());
+console.log(">>> current hour", d.getHours(), "Timezone:", process.env.TZ);
+
 const rest = new REST({ version: "10" }).setToken(token);
 
 const accessRoles = loadJSON("./access_roles.json");
@@ -56,7 +60,7 @@ const reloadAccessRoles = async () => {
       role.hourRange = [parseInt(hourRange[0]), parseInt(hourRange[1])];
     }
   }
-  console.log(">>> Access roles loaded", accessRoles);
+  console.log(">>> Access roles loaded");
 };
 
 const daysOfWeek = [
