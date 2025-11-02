@@ -52,7 +52,9 @@ const reloadAccessRoles = async () => {
     role.memberIds = [];
     for (const member of members) {
       userIdToRoles[member.user.id] = userIdToRoles[member.user.id] || [];
-      userIdToRoles[member.user.id].push(role.roleId);
+      if (!userIdToRoles[member.user.id].includes(role.roleId)) {
+        userIdToRoles[member.user.id].push(role.roleId);
+      }
       role.memberIds.push(member.user.id);
     }
     if (role.timeRange !== "anytime") {
@@ -368,9 +370,14 @@ async function handleMessage(message) {
         }
         message.reply(`${reply} \n${pickRandomReply(message.author)}`);
       } else {
-        message.reply(
-          "You don't have access to the Commons Hub Brussels. Become a member to access the door."
-        );
+        const role = accessRoles.find((r) => r.roleId === roles[0]);
+        if (!role) {
+          message.reply(
+            "You don't have access to the Commons Hub Brussels. Become a member to access the door."
+          );
+        } else {
+          message.reply(`No access at this time. ${role.description}.`);
+        }
         return;
       }
     } catch (error) {
@@ -387,8 +394,8 @@ async function handleMessage(message) {
 //   console.log(">>> Testing message");
 //   handleMessage({
 //     author: {
-//       id: "182155649612906497",
-//       displayName: "Filip",
+//       id: "1303375645421604988",
+//       displayName: "Mara",
 //     },
 //     channelId: allowedChannelId,
 //     content: "open",
