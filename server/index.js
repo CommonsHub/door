@@ -62,6 +62,24 @@ const reloadAccessRoles = async () => {
       role.hourRange = [parseInt(hourRange[0]), parseInt(hourRange[1])];
     }
   }
+
+  if (DRY_RUN) {
+    setTimeout(() => {
+      console.log(">>> Testing message");
+      handleMessage({
+        author: {
+          id: "1303375645421604988",
+          displayName: "Mara",
+        },
+        channelId: allowedChannelId,
+        content: "open",
+        reply: (message) => {
+          console.log(">>> Reply: ", message);
+        },
+      });
+    }, 1000 * 1);
+  }
+
   console.log(">>> Access roles loaded");
 };
 
@@ -102,13 +120,28 @@ function hasAccess(userid) {
   const userRoles = userIdToRoles[userid];
   const currentDay = daysOfWeek[new Date().getDay()];
   const currentHour = new Date().getHours();
-  const openRoles = accessRoles.filter(
-    (r) =>
-      (r.timeRange === "anytime" && r.daysOfWeek === "anytime") ||
-      ((r.daysOfWeek === "anytime" || r.daysOfWeek.includes(currentDay)) &&
-        currentHour >= r.hourRange[0] &&
-        currentHour <= r.hourRange[1])
-  );
+
+  const openRoles = accessRoles.filter((r) => {
+    // Can this role open the door today?
+    if (r.daysOfWeek !== "anytime" && !r.daysOfWeek.includes(currentDay)) {
+      return false;
+    }
+
+    // Can this role open the door at this hour of the day?
+    if (r.timeRange === "anytime") {
+      return true;
+    }
+
+    if (
+      r.hourRange &&
+      currentHour >= r.hourRange[0] &&
+      currentHour <= r.hourRange[1]
+    ) {
+      return true;
+    }
+    return false;
+  });
+
   console.log(
     ">>> openRoles",
     openRoles.map((r) => r.name)
@@ -339,6 +372,21 @@ async function handleMessage(message) {
     // console.log(JSON.stringify(message.author, null, 2));
     try {
       const roles = userIdToRoles[message.author.id];
+      if (!roles) {
+        if (DRY_RUN) {
+          console.log(
+            ">>> DRY RUN: ",
+            "No roles found for user",
+            message.author.id
+          );
+          console.log(">>> DEBUG userIdToRoles", userIdToRoles);
+          return;
+        }
+        message.reply(
+          "You don't have access to the Commons Hub Brussels. Become a member to access the door."
+        );
+        return;
+      }
       const firstRole = accessRoles.find((r) => r.roleId === roles[0]);
       if (hasAccess(message.author.id)) {
         await addUser(message.author, message.guildId);
@@ -382,28 +430,13 @@ async function handleMessage(message) {
       }
     } catch (error) {
       if (DRY_RUN) {
-        console.log(">>> DRY RUN: ", error.message);
+        console.log(">>> DRY RUN: ", error);
         return;
       }
       message.reply(error.message);
     }
   }
 }
-
-// setTimeout(() => {
-//   console.log(">>> Testing message");
-//   handleMessage({
-//     author: {
-//       id: "1303375645421604988",
-//       displayName: "Mara",
-//     },
-//     channelId: allowedChannelId,
-//     content: "open",
-//     reply: (message) => {
-//       console.log(">>> Reply: ", message);
-//     },
-//   });
-// }, 1000 * 4);
 
 client.on("messageCreate", handleMessage);
 
