@@ -16,7 +16,7 @@
   {
     "name": "Member",
     "roleId": "1280559675292778617",
-    "description": "Members can open the door any day between 8am and 7pm",
+    "description": "Members can open the door anytime",
     "daysOfWeek": [
       "Monday",
       "Tuesday",
@@ -26,6 +26,13 @@
       "Saturday",
       "Sunday"
     ],
+    "timeRange": "anytime"
+  },
+  {
+    "name": "Visitor",
+    "roleId": "1435613145019449427",
+    "description": "Visitors can open the door anytime",
+    "daysOfWeek": "anytime",
     "timeRange": "anytime"
   },
   {
