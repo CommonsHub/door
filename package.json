@@ -1,11 +1,12 @@
 {
   "name": "door-control-server",
   "version": "1.0.0",
-  "main": "server/index.js",
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "build": "npm install"
+    "build": "cd server && npm install",
+    "test": "cd server && npm run test",
+    "cron": "cd server && node scripts/send-event-access-emails.js"
   },
   "dependencies": {
     "@citizenwallet/sdk": "^2.0.44",

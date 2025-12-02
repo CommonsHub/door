@@ -11,11 +11,13 @@ import {
 import { loginWithCitizenWallet } from "./lib/citizenwallet/index.js";
 import { sendDiscordMessage, getMembers, removeRole } from "./lib/discord.js";
 import { loadJSON } from "./lib/utils.js";
-import express from "express";
+import { createApp } from "./app.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import crypto from "crypto";
+import { verifyMessage, Wallet } from "ethers";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -43,12 +45,107 @@ console.log(">>> current hour", d.getHours(), "Timezone:", process.env.TZ);
 const rest = new REST({ version: "10" }).setToken(token);
 
 const accessRoles = loadJSON("./access_roles.json");
+const authorizedKeys = loadJSON("./authorized_keys.json");
 
 const userIdToRoles = {};
 
+// Private key management
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const PRIVATE_KEY_PATH = path.join(DATA_DIR, ".privateKey");
+
+/**
+ * Get or generate private key for event email signing
+ */
+function getOrCreatePrivateKey() {
+  // Check environment variable first
+  if (process.env.PRIVATE_KEY) {
+    const wallet = new Wallet(process.env.PRIVATE_KEY);
+    console.log(">>> 🔐 Using PRIVATE_KEY from environment");
+    console.log(">>> 📬 Public address:", wallet.address);
+    return process.env.PRIVATE_KEY;
+  }
+
+  // Check if key file exists
+  if (fs.existsSync(PRIVATE_KEY_PATH)) {
+    const privateKey = fs.readFileSync(PRIVATE_KEY_PATH, "utf8").trim();
+    const wallet = new Wallet(privateKey);
+    console.log(">>> 📂 Loaded private key from:", PRIVATE_KEY_PATH);
+    console.log(">>> 📬 Public address:", wallet.address);
+    return privateKey;
+  }
+
+  // Generate new private key
+  console.log(">>> 🔑 Generating new private key...");
+  const wallet = Wallet.createRandom();
+  const privateKey = wallet.privateKey;
+
+  // Save to file
+  try {
+    fs.writeFileSync(PRIVATE_KEY_PATH, privateKey, { mode: 0o600 });
+    console.log(">>> ✅ Private key saved to:", PRIVATE_KEY_PATH);
+    console.log(">>> 📬 Public address:", wallet.address);
+    console.log(">>> ✅ Server public key automatically authorized");
+  } catch (error) {
+    console.error(">>> ❌ Failed to save private key:", error.message);
+  }
+
+  return privateKey;
+}
+
+// Initialize private key and log public address
+const PRIVATE_KEY = getOrCreatePrivateKey();
+
+// Add server's public key to authorized keys
+const serverWallet = new Wallet(PRIVATE_KEY);
+const serverPublicKey = serverWallet.address;
+
+// Check if server key is already in authorized keys
+const serverKeyExists = authorizedKeys.some(
+  (key) => key.publicKey.toLowerCase() === serverPublicKey.toLowerCase()
+);
+
+if (!serverKeyExists) {
+  authorizedKeys.push({
+    name: "Door Server",
+    publicKey: serverPublicKey,
+    description: "Auto-generated server key for event access emails",
+  });
+  console.log(">>> ✅ Server public key added to authorized keys");
+}
+
+// Append-only log file for all door access
+const LOG_FILE = path.join(process.env.LOG_DIR || __dirname, "door_access.log");
+
+/**
+ * Append door access to log file
+ * @param {string} name - Name of person accessing
+ * @param {string} method - Access method (discord, citizenwallet, token, signature, shortcut)
+ * @param {Object} metadata - Additional metadata
+ */
+function logDoorAccess(name, method, metadata = {}) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    name,
+    method,
+    ...metadata,
+  };
+
+  const logLine = JSON.stringify(logEntry) + "\n";
+
+  try {
+    fs.appendFileSync(LOG_FILE, logLine, "utf8");
+  } catch (error) {
+    console.error("Failed to write to log file:", error);
+  }
+}
+
 const reloadAccessRoles = async () => {
   for (const role of accessRoles) {
+    DRY_RUN &&
+      console.log(">>> Loading members for role", role.name, role.roleId);
     const members = await getMembers(process.env.DISCORD_GUILD_ID, role.roleId);
+    DRY_RUN && console.log(">>> ", members.length, "members found");
     role.memberIds = [];
     for (const member of members) {
       userIdToRoles[member.user.id] = userIdToRoles[member.user.id] || [];
@@ -68,8 +165,8 @@ const reloadAccessRoles = async () => {
       console.log(">>> Testing message");
       handleMessage({
         author: {
-          id: "1303375645421604988",
-          displayName: "Mara",
+          id: "337769522100568076",
+          displayName: "Kris",
         },
         channelId: allowedChannelId,
         content: "open",
@@ -390,6 +487,13 @@ async function handleMessage(message) {
       const firstRole = accessRoles.find((r) => r.roleId === roles[0]);
       if (hasAccess(message.author.id)) {
         await addUser(message.author, message.guildId);
+
+        logDoorAccess(message.author.displayName, "discord", {
+          userId: message.author.id,
+          username: message.author.username,
+          role: firstRole.name,
+        });
+
         openDoor(message.author.id, client.user.tag);
 
         const currentHour = new Date().getHours() + 2;
@@ -439,10 +543,6 @@ async function handleMessage(message) {
 }
 
 client.on("messageCreate", handleMessage);
-
-const app = express();
-
-app.use(express.urlencoded({ extended: true }));
 
 let isDoorOpen = false;
 
@@ -511,148 +611,98 @@ setInterval(() => {
   }
 }, 1000 * 60 * 60); // reset log every 24h
 
-const getTokenOfTheDay = () => {
+function getTokenOfTheDay() {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
   const hash = crypto
     .createHash("md5")
     .update([process.env.DISCORD_GUILD_ID, today, SECRET].join(":"))
     .digest("hex");
   return hash;
-};
+}
 
-app.get("/token", (req, res) => {
-  if (req.query.secret !== SECRET) {
-    return res.status(403).send("Invalid secret");
+/**
+ * Verify signature for event organiser access
+ * @param {Object} params - Query parameters from URL
+ * @returns {Object} { valid: boolean, error: string, publicKey: string }
+ */
+function verifyEventOrganizerSignature(params) {
+  const {
+    name,
+    host,
+    reason,
+    timestamp,
+    startTime,
+    duration,
+    sig,
+    secret,
+    eventUrl,
+  } = params;
+
+  // Check all required parameters are present
+  if (
+    !name ||
+    !host ||
+    !reason ||
+    !timestamp ||
+    !startTime ||
+    !duration ||
+    !sig
+  ) {
+    return { valid: false, error: "Missing required parameters" };
   }
-  res.status(200).send(getTokenOfTheDay());
-});
 
-// Route to open the door if the correct secret is provided
-app.get("/open", async (req, res) => {
-  const { profile, balance } = loginWithCitizenWallet(req.query);
+  // If SECRET is set and matches, bypass time checks but still verify signature
+  const secretBypass = SECRET && secret === SECRET;
 
-  const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  if (!secretBypass) {
+    // Verify current time is within validity window
+    const eventStartTime = parseInt(startTime); // in seconds
+    const eventDuration = parseInt(duration); // in minutes
+    const eventEndTime = eventStartTime + eventDuration * 60;
 
-  if (req.query.token) {
-    const hash = getTokenOfTheDay();
-    if (req.query.token !== hash) {
-      console.log(">>> /open Invalid token", req.query.token);
-      return res.status(403).send("Invalid token");
-    } else {
-      openDoor(today, "token");
-      sendDiscordMessage(`🚪 Door opened using today's token`);
-      return res.send(generateOpenHtml());
+    const now = new Date().getTime() / 1000;
+    if (now < eventStartTime - 15 * 60) {
+      // 15 minutes before start
+      return { valid: false, error: "Event has not started yet" };
+    }
+
+    if (now > eventEndTime + 15 * 60) {
+      // 15 minutes after end
+      return { valid: false, error: "Event access period has expired" };
     }
   }
 
-  if (balance > 0) {
-    // Create a user object that matches the expected structure
-    const user = {
-      id: profile.address,
-      username: profile?.username || connectedAccount.slice(0, 8),
-      tag: profile?.username || connectedAccount.slice(0, 8),
-      globalName: profile?.username,
-      avatarURL: profile?.image_medium || null,
-    };
+  // Construct the message that was signed (include eventUrl if present)
+  const message = eventUrl
+    ? `name=${name}&host=${host}&reason=${reason}&timestamp=${timestamp}&startTime=${startTime}&duration=${duration}&eventUrl=${eventUrl}`
+    : `name=${name}&host=${host}&reason=${reason}&timestamp=${timestamp}&startTime=${startTime}&duration=${duration}`;
 
-    await addUser(user);
-    openDoor(connectedAccount, (profile && profile.username) || "unknown");
+  try {
+    // Recover the public key from the signature
+    const recoveredAddress = verifyMessage(message, sig);
 
-    // Send message to Discord channel via REST
-    await sendDiscordMessage(
-      `🚪 Door opened by ${
-        profile?.username || connectedAccount.slice(0, 8)
-      } via Citizen Wallet`
+    // Check if recovered address is in authorized keys whitelist
+    const authorizedKey = authorizedKeys.find(
+      (key) => key.publicKey.toLowerCase() === recoveredAddress.toLowerCase()
     );
 
-    return res.send(generateOpenHtml(profile));
-  } else {
-    if (req.query.sigAuthAccount) {
-      return res.send(generateForbiddenHtml(profile));
-    } else {
-      return res.send(generateNoAppHtml());
+    if (!authorizedKey) {
+      return { valid: false, error: "Unauthorized public key" };
     }
+
+    return {
+      valid: true,
+      publicKey: recoveredAddress,
+      authorizedName: authorizedKey.name,
+      secretBypass,
+      eventUrl,
+    };
+  } catch (error) {
+    return { valid: false, error: `Invalid signature: ${error.message}` };
   }
-});
+}
 
-let guild;
-const loadGuild = async function () {
-  if (process.env.DISCORD_GUILD_ID) {
-    console.log(">>> Loading guild", process.env.DISCORD_GUILD_ID);
-    guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
-    if (!guild) {
-      throw new Error(`Guild ${process.env.DISCORD_GUILD_ID} not found`);
-    }
-    await guild.members.fetch();
-  }
-};
-
-app.post("/open", async (req, res) => {
-  const { token, userid } = req.body;
-
-  let member;
-  if (guild) {
-    member = guild.members.cache.get(userid);
-    if (!member) {
-      return res.status(403).send("User not found");
-    }
-  }
-
-  // Verify token, should be md5 of userid and SECRET
-  const hash = crypto
-    .createHash("md5")
-    .update([process.env.DISCORD_GUILD_ID, userid, SECRET].join(":"))
-    .digest("hex");
-  if (token !== hash) {
-    if (req.host === "localhost" && SECRET) {
-      console.log(">>> /open Invalid token", token, hash);
-    } else {
-      console.log(">>> /open Invalid token", token);
-    }
-    return res.status(403).send("Invalid token");
-  }
-
-  // Send message to Discord channel via REST
-  const msg = `🚪 Door opened by <@${member.id}> via shortcut 📲`;
-  await sendDiscordMessage(msg);
-
-  addUser(member.user, process.env.DISCORD_GUILD_ID);
-  openDoor(
-    userid,
-    member.user.displayName || member.user.globalName || member.user.username
-  );
-
-  return res.status(200).send(msg);
-});
-
-// Route to check if the door is open
-app.get("/check", (req, res) => {
-  // console.log(JSON.stringify(req.connection, null, 2));
-  // console.log(req);
-  const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-  status_log[ip] = status_log[ip] || [];
-  status_log[ip].push({
-    timestamp: new Date().toISOString(),
-    ip,
-    userAgent: req.headers["user-agent"],
-    isDoorOpen,
-  });
-  if (isDoorOpen) {
-    res.status(200).send("open");
-  } else {
-    res.status(403).send("closed"); // Forbidden if door is closed
-  }
-});
-
-app.get("/log", (req, res) => {
-  res
-    .status(200)
-    .header("Content-Type", "application/json")
-    .send(JSON.stringify(doorlog, null, 2));
-  return;
-});
-
-const getTodayUsers = () => {
+function getTodayUsers() {
   const today = new Date().toLocaleDateString("en-GB", {
     timeZone: "Europe/Brussels",
   });
@@ -666,211 +716,41 @@ const getTodayUsers = () => {
   });
 
   return Array.from(todayUsers);
-};
-
-const avatarGrid = () => {
-  const todayUsers = getTodayUsers();
-
-  if (todayUsers.length === 0) {
-    return "<p>No visitors today</p>";
-  }
-
-  const avatars = todayUsers
-    .map((userid) => {
-      const user = users[userid];
-      const defaultAvatar =
-        "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
-
-      return `
-      <div class="today-user">
-        <img class="today-avatar" src="${
-          user?.avatar || defaultAvatar
-        }" alt="Avatar">
-        <div class="today-name">${
-          user?.username || user?.tag || "Unknown"
-        }</div>
-      </div>
-    `;
-    })
-    .join("");
-
-  return `
-    <div class="today-visitors">
-      <h2>Today's Visitors</h2>
-      <div class="avatar-grid">
-        ${avatars}
-      </div>
-    </div>
-  `;
-};
-
-const logRow = (log) => {
-  const user = users[log.userid];
-  const defaultAvatar =
-    "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
-
-  return `
-    <div class="log-entry">
-      <img class="avatar" src="${user?.avatar || defaultAvatar}" alt="Avatar">
-      <div class="log-content">
-        <div class="username">${
-          user?.displayName || user?.tag || "Unknown User"
-        }</div>
-        <div class="timestamp">${log.timestamp}</div>
-      </div>
-    </div>
-  `;
-};
-function generateHtml(doorlog) {
-  const body = `
-  <img src="/commonshub-icon.svg" class="logo" />
-  ${avatarGrid()}
-  <h2>Door Access Log</h2>
-  ${
-    doorlog.length > 0
-      ? doorlog.slice(-10).reverse().map(logRow).join("\n")
-      : "<p>No door activity recorded yet</p>"
-  }
-`;
-
-  const html = `
-  <html>
-    <head>
-      <link rel="stylesheet" href="/styles.css">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>${body}</body>
-  </html>
-`;
-
-  return html;
 }
 
-function generateOpenHtml(profile) {
-  const body = `
-  <img src="${
-    profile?.image_medium || DEFAULT_AVATAR
-  }" alt="Avatar" class="avatar" style="height: 100px; width: 100px; border-radius: 50%;">
-  <h1>Welcome ${profile?.username || "visitor"}!</h1>
-  
-  <h2>Door opened</h2>
-  ${avatarGrid()}
-  <a href="https://app.citizenwallet.xyz/close">Close</a>
-`;
-
-  const html = `
-  <html>
-    <head>
-      <link rel="stylesheet" href="/styles.css">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>${body}</body>
-    <script>
-      setTimeout(() => {
-        window.location.href = "https://app.citizenwallet.xyz/close";
-      }, 5000);
-    </script>
-  </html>
-`;
-
-  return html;
-}
-
-function generateNoAppHtml() {
-  const body = `
-  <img src="/commonshub-icon.svg" class="logo" />
-  <div style="text-align: center; padding: 10px;">
-    <h1>Welcome to the Commons Hub!</h1>
-    <p>To open the door, scan the QR Code from <a href="https://app.citizenwallet.xyz/#/?alias=${community.community.alias}&dl=onboarding">the Citizen Wallet</a> or type "open" in the <a href="https://discord.com/channels/1280532848604086365/1306678821751230514">#door channel on Discord</a>.</p>
-    <div class="btn"><span class="emoji">🚪</span><a href="https://discord.com/channels/1280532848604086365/1306678821751230514">Open the #door channel on Discord</a></div>
-    <p>Not a member yet? <a href="https://commonshub.brussels">Join the Commons Hub Community!</a></p>
-    <div class="btn"><span class="emoji">🗓️</span><a href="https://lu.ma/commonshub_bxl">Upcoming events</a></div>
-    <div class="btn"><span class="emoji">🙋🏻‍♀️</span><a href="https://instagram.com/commonshub_bxl">Follow us on Instagram</a></div>
-    <div class="btn"><span class="emoji">👨🏻‍💼</span><a href="https://www.linkedin.com/company/commonshub-brussels">Follow us on LinkedIn</a></div>
-    <div class="btn"><span class="emoji">📝</span><a href="https://map.commonshub.brussels">Leave a review on Google Maps</a></div>
-  </div>
-`;
-
-  const html = `
-  <html>
-    <head>
-      <link rel="stylesheet" href="/styles.css">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>${body}</body>
-  </html>
-`;
-
-  return html;
-}
-
-function generateForbiddenHtml(profile) {
-  const body = `
-  <img src="/commonshub-icon.svg" class="logo" />
-  <div style="text-align: center; padding: 10px;">
-    <h2>You need to be a member to access this door</h2>
-  <p>Please join the Commons Hub to earn some tokens and try again.</p>
-  </div>
-  <a href="https://app.citizenwallet.xyz/close" >Close</a>
-`;
-
-  const html = `
-  <html>
-    <head>
-      <link rel="stylesheet" href="/styles.css">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>${body}</body>
-    <script>
-      setTimeout(() => {
-        window.location.href = "https://app.citizenwallet.xyz/close";
-      }, 5000);
-    </script>
-  </html>
-`;
-
-  return html;
-}
-
-app.get("/", (req, res) => {
-  res
-    .status(200)
-    .header("content-type", "text/html")
-    .send(generateHtml(doorlog));
-});
-
-app.get("/status", (req, res) => {
-  const clients = Object.keys(status_log);
-  const status = {};
-  clients.forEach((ip) => {
-    if (status_log[ip].length === 0) {
-      status[ip] = "Online";
-    } else {
-      const lastLog = status_log[ip][status_log[ip].length - 1];
-      const lastTimestamp = new Date(lastLog.timestamp).toLocaleString(
-        "en-GB",
-        {
-          timeZone: "Europe/Brussels",
-        }
-      );
-      const elapsed = new Date() - new Date(lastLog.timestamp);
-      if (elapsed > 3500) {
-        status[ip] = `Offline since ${lastTimestamp} (${Math.round(
-          elapsed / 1000
-        )}s ago)`;
-      } else {
-        status[ip] = `${lastLog.userAgent} online`;
-      }
+let guild;
+async function loadGuild() {
+  if (process.env.DISCORD_GUILD_ID) {
+    console.log(">>> Loading guild", process.env.DISCORD_GUILD_ID);
+    guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
+    if (!guild) {
+      throw new Error(`Guild ${process.env.DISCORD_GUILD_ID} not found`);
     }
-  });
-  res
-    .status(200)
-    .header("Content-Type", "application/json")
-    .send(JSON.stringify(status, null, 2));
-});
+    await guild.members.fetch();
+  }
+}
 
-// Serve static files from a 'public' directory
-app.use(express.static(path.join(__dirname, "public")));
+// Create dependencies object for routes
+const dependencies = {
+  verifyEventOrganizerSignature,
+  loginWithCitizenWallet,
+  openDoor,
+  logDoorAccess,
+  addUser,
+  getTokenOfTheDay,
+  sendDiscordMessage,
+  community,
+  users,
+  getTodayUsers,
+  isDoorOpen: () => isDoorOpen,
+  get guild() { return guild; },
+  SECRET,
+  doorlog,
+  status_log,
+};
+
+// Create Express app with all routes
+const app = createApp(dependencies);
 
 // Start the server (useful for local development)
 const PORT = process.env.PORT || 3000;
