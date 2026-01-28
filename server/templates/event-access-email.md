@@ -1,6 +1,6 @@
 Hi {{name}},
 
-Thank you for registering for our event at the Open Source Village.
+Thank you for registering for our event at the [Open Source Village](https://opensourcevillage.org).
 
 ## Event Details
 

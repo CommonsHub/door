@@ -36,7 +36,7 @@ export default function registerOpenRoutes(app, dependencies) {
       if (!verification.valid) {
         console.log(
           ">>> /open Signature verification failed:",
-          verification.error
+          verification.error,
         );
 
         const html = generateSignatureErrorPage({
@@ -78,7 +78,7 @@ export default function registerOpenRoutes(app, dependencies) {
         ? `<${req.query.eventUrl}>`
         : req.query.reason;
       await sendDiscordMessage(
-        `🚪 ${req.query.name} opened the door for ${eventLink} hosted by ${req.query.host}`
+        `🚪 ${req.query.name} opened the door for ${eventLink} hosted by ${req.query.host}`,
       );
 
       // Generate welcome page with redirect
@@ -105,7 +105,7 @@ export default function registerOpenRoutes(app, dependencies) {
 
         const todayUsers = getTodayUsers();
         return res.send(
-          generateCitizenWalletSuccessPage(null, todayUsers, users)
+          generateCitizenWalletSuccessPage(null, todayUsers, users),
         );
       }
     }
@@ -132,12 +132,12 @@ export default function registerOpenRoutes(app, dependencies) {
 
       // Send message to Discord channel via REST
       await sendDiscordMessage(
-        `🚪 Door opened by ${username} via Citizen Wallet`
+        `🚪 Door opened by ${username} via Citizen Wallet`,
       );
 
       const todayUsers = getTodayUsers();
       return res.send(
-        generateCitizenWalletSuccessPage(profile, todayUsers, users)
+        generateCitizenWalletSuccessPage(profile, todayUsers, users),
       );
     } else {
       if (req.query.sigAuthAccount) {
@@ -176,7 +176,9 @@ export default function registerOpenRoutes(app, dependencies) {
         return res.status(403).send("User not found");
       }
       displayName =
-        member.user.displayName || member.user.globalName || member.user.username;
+        member.user.displayName ||
+        member.user.globalName ||
+        member.user.username;
 
       logDoorAccess(displayName, "shortcut", {
         userId: member.id,
@@ -195,7 +197,9 @@ export default function registerOpenRoutes(app, dependencies) {
         note: "Guild not loaded",
       });
 
-      await sendDiscordMessage(`🚪 Door opened by user ${userid} via shortcut 📲`);
+      await sendDiscordMessage(
+        `🚪 Door opened by user <@${userid}> via shortcut 📲`,
+      );
     }
 
     openDoor(userid, displayName);
