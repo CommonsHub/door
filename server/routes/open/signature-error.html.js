@@ -14,8 +14,9 @@ export function generateSignatureErrorPage({
   let validityMessage = "";
 
   if (startTime && duration) {
-    const startDate = new Date(startTime * 1000);
-    const endDate = new Date((startTime + duration * 60) * 1000);
+    const bufferMinutes = 30;
+    const startDate = new Date((startTime - bufferMinutes * 60) * 1000);
+    const endDate = new Date((startTime + duration * 60 + bufferMinutes * 60) * 1000);
     const dateOptions = {
       weekday: "long",
       year: "numeric",
