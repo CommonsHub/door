@@ -5,6 +5,9 @@
   "scripts": {
     "start": "node index.js",
     "build": "npm install",
+    "generate-url": "node scripts/generate-access-url.js",
+    "notify-attendees": "node scripts/notify-attendees.js",
+    "send-test-email": "node scripts/send-test-email.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:signature": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/signature-auth.test.js",
     "test:discord": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/discord-access.test.js",

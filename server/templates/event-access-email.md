@@ -1,6 +1,6 @@
 Hi {{name}},
 
-Thank you for registering for our event at the Commons Hub Brussels.
+Thank you for registering for our event at the Open Source Village.
 
 ## Event Details
 
@@ -20,9 +20,10 @@ This link is unique to you and valid for this event only.
 
 ## Important Notes
 
-- You can open the door up to 15mn before the start of the event ({{eventTime}})
-- The door access link will expire 15mn after the event
+- You can open the door 30mn before the start of the event ({{eventTime}})
+- The door access link will expire 30mn after the event
 - If you have any issues accessing the space, please reach out to the organiser ({{hostName}}) or ring the door.
+- Please close the door behind you
 
 ## After the event
 

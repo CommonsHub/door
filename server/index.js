@@ -101,7 +101,7 @@ const serverPublicKey = serverWallet.address;
 
 // Check if server key is already in authorized keys
 const serverKeyExists = authorizedKeys.some(
-  (key) => key.publicKey.toLowerCase() === serverPublicKey.toLowerCase()
+  (key) => key.publicKey.toLowerCase() === serverPublicKey.toLowerCase(),
 );
 
 if (!serverKeyExists) {
@@ -241,7 +241,7 @@ function hasAccess(userid) {
 
   console.log(
     ">>> openRoles",
-    openRoles.map((r) => r.name)
+    openRoles.map((r) => r.name),
   );
   if (!userRoles || userRoles.length === 0) {
     console.log(">>> User", userid, "has no roles");
@@ -257,7 +257,7 @@ function hasAccess(userid) {
     "userRoles",
     userRoles,
     "openRoles",
-    openRoles
+    openRoles,
   );
   return false;
 }
@@ -276,7 +276,7 @@ async function resetPresentToday() {
   // get list of members of the role
   const members = await getMembers(
     process.env.DISCORD_GUILD_ID,
-    presentTodayRoleId
+    presentTodayRoleId,
   );
 
   console.log(">>> Resetting present today for", members.length, "members");
@@ -286,12 +286,12 @@ async function resetPresentToday() {
         ">>> Removing role",
         presentTodayRoleId,
         "from",
-        member.user.username
+        member.user.username,
       );
       await removeRole(
         process.env.DISCORD_GUILD_ID,
         presentTodayRoleId,
-        member.user.id
+        member.user.id,
       );
     } catch (error) {
       console.error("Failed to remove role:", error);
@@ -303,10 +303,13 @@ async function resetPresentToday() {
   }
 }
 
-setInterval(() => {
-  resetPresentToday();
-  reloadAccessRoles();
-}, 1000 * 60 * 60 * 1); // reset present today every hour
+setInterval(
+  () => {
+    resetPresentToday();
+    reloadAccessRoles();
+  },
+  1000 * 60 * 60 * 1,
+); // reset present today every hour
 
 function pickRandom(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -330,11 +333,11 @@ function pickRandomFact() {
 async function loadFunFacts() {
   console.log(
     ">>> Loading fun facts from channel",
-    process.env.DISCORD_FUNFACTS_CHANNEL_ID
+    process.env.DISCORD_FUNFACTS_CHANNEL_ID,
   );
   try {
     const channel = await client.channels.fetch(
-      process.env.DISCORD_FUNFACTS_CHANNEL_ID
+      process.env.DISCORD_FUNFACTS_CHANNEL_ID,
     );
     if (!channel?.isTextBased()) return;
 
@@ -351,7 +354,7 @@ async function loadFunFacts() {
           // Define a score based on the reactions count and the date of the message
           const daysSinceCreation = Math.ceil(
             (new Date().getTime() - new Date(m.createdTimestamp).getTime()) /
-              (1000 * 60 * 60 * 24)
+              (1000 * 60 * 60 * 24),
           );
           const score = reactionsCount / daysSinceCreation;
 
@@ -361,7 +364,7 @@ async function loadFunFacts() {
             daysSinceCreation,
             score,
           };
-        })
+        }),
     );
     console.log(">>> ", funFacts.length, "fun facts loaded");
   } catch (error) {
@@ -369,9 +372,12 @@ async function loadFunFacts() {
   }
 }
 
-setInterval(() => {
-  loadFunFacts();
-}, 1000 * 60 * 60 * 24); // refresh fun facts every 24 hours
+setInterval(
+  () => {
+    loadFunFacts();
+  },
+  1000 * 60 * 60 * 24,
+); // refresh fun facts every 24 hours
 
 function pickRandomReply(user) {
   const randomFact = pickRandomFact();
@@ -399,22 +405,25 @@ async function loginToDiscord() {
     console.log(">>> Logging in to Discord");
     console.log(
       ">>> Remaining connections:",
-      data.session_start_limit.remaining
+      data.session_start_limit.remaining,
     );
     client.login(token);
   } else {
     console.log(
       ">>> Remaining connections:",
-      data.session_start_limit.remaining
+      data.session_start_limit.remaining,
     );
     console.log(
       ">>> Reset in",
       Math.ceil(Number(data.session_start_limit.reset_after) / 1000 / 60),
-      "minutes"
+      "minutes",
     );
-    setTimeout(() => {
-      loginToDiscord();
-    }, Math.max(1000 * 60, Number(data.session_start_limit.reset_after))); // retry in 5 minutes
+    setTimeout(
+      () => {
+        loginToDiscord();
+      },
+      Math.max(1000 * 60, Number(data.session_start_limit.reset_after)),
+    ); // retry in 5 minutes
   }
 }
 
@@ -474,13 +483,13 @@ async function handleMessage(message) {
           console.log(
             ">>> DRY RUN: ",
             "No roles found for user",
-            message.author.id
+            message.author.id,
           );
           console.log(">>> DEBUG userIdToRoles", userIdToRoles);
           return;
         }
         message.reply(
-          "You don't have access to the Commons Hub Brussels. Become a member to access the door."
+          "You don't have access to the Commons Hub Brussels. Become a member to access the door.",
         );
         return;
       }
@@ -525,7 +534,7 @@ async function handleMessage(message) {
         const role = accessRoles.find((r) => r.roleId === roles[0]);
         if (!role) {
           message.reply(
-            "You don't have access to the Commons Hub Brussels. Become a member to access the door."
+            "You don't have access to the Commons Hub Brussels. Become a member to access the door.",
           );
         } else {
           message.reply(`No access at this time. ${role.description}.`);
@@ -570,7 +579,7 @@ async function addUser(user, guildId) {
             ">>> Adding ",
             member.displayName,
             "to",
-            presentTodayRoleId
+            presentTodayRoleId,
           );
           await member.roles.add(presentTodayRoleId);
           presentToday[today].push(member);
@@ -579,7 +588,7 @@ async function addUser(user, guildId) {
         }
       } else {
         throw new Error(
-          `User ${user.username} (id: ${user.id}) not found in guild`
+          `User ${user.username} (id: ${user.id}) not found in guild`,
         );
       }
     }
@@ -604,12 +613,15 @@ function openDoor(userid, agent) {
   }, 3500);
 }
 
-setInterval(() => {
-  if (new Date().getHours() === 0) {
-    status_log = {};
-    console.log(">>> Resetting status log");
-  }
-}, 1000 * 60 * 60); // reset log every 24h
+setInterval(
+  () => {
+    if (new Date().getHours() === 0) {
+      status_log = {};
+      console.log(">>> Resetting status log");
+    }
+  },
+  1000 * 60 * 60,
+); // reset log every 24h
 
 function getTokenOfTheDay() {
   const today = new Date().toISOString().split("T")[0].replace(/-/g, "");
@@ -661,13 +673,13 @@ function verifyEventOrganizerSignature(params) {
     const eventEndTime = eventStartTime + eventDuration * 60;
 
     const now = new Date().getTime() / 1000;
-    if (now < eventStartTime - 15 * 60) {
-      // 15 minutes before start
+    if (now < eventStartTime - 30 * 60) {
+      // 30 minutes before start
       return { valid: false, error: "Event has not started yet" };
     }
 
-    if (now > eventEndTime + 15 * 60) {
-      // 15 minutes after end
+    if (now > eventEndTime + 30 * 60) {
+      // 30 minutes after end
       return { valid: false, error: "Event access period has expired" };
     }
   }
@@ -683,7 +695,7 @@ function verifyEventOrganizerSignature(params) {
 
     // Check if recovered address is in authorized keys whitelist
     const authorizedKey = authorizedKeys.find(
-      (key) => key.publicKey.toLowerCase() === recoveredAddress.toLowerCase()
+      (key) => key.publicKey.toLowerCase() === recoveredAddress.toLowerCase(),
     );
 
     if (!authorizedKey) {
@@ -743,7 +755,9 @@ const dependencies = {
   users,
   getTodayUsers,
   isDoorOpen: () => isDoorOpen,
-  get guild() { return guild; },
+  get guild() {
+    return guild;
+  },
   SECRET,
   doorlog,
   status_log,
