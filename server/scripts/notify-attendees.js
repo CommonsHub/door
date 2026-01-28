@@ -22,6 +22,12 @@ const serverDir = path.join(__dirname, "..");
 
 dotenv.config({ path: path.join(serverDir, ".env") });
 
+// Set default timezone to Europe/Brussels if not specified
+if (!process.env.TZ) {
+  process.env.TZ = "Europe/Brussels";
+}
+const TIMEZONE = process.env.TZ;
+
 // Configuration
 const LUMA_API_KEY = process.env.LUMA_API_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -142,6 +148,7 @@ function formatDateTime(dateStr) {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: TIMEZONE,
   });
 }
 
@@ -194,6 +201,8 @@ async function main() {
   console.log("\n╔════════════════════════════════════════════════════════╗");
   console.log("║  Notify Event Attendees                                ║");
   console.log("╚════════════════════════════════════════════════════════╝\n");
+
+  console.log(`Timezone: ${TIMEZONE}\n`);
 
   // Validate config
   if (!LUMA_API_KEY) {
@@ -315,8 +324,9 @@ async function main() {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: TIMEZONE,
   });
-  const eventTime = `${startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+  const eventTime = `${startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: TIMEZONE })} - ${endDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: TIMEZONE })}`;
 
   let sent = 0;
   let failed = 0;

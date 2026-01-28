@@ -37,6 +37,12 @@ const __dirname = dirname(__filename);
 // Load environment variables from .env file
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
+// Set default timezone to Europe/Brussels if not specified
+if (!process.env.TZ) {
+  process.env.TZ = "Europe/Brussels";
+}
+const TIMEZONE = process.env.TZ;
+
 // Configuration
 const LUMA_API_KEY = process.env.LUMA_API_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -246,13 +252,15 @@ function formatEventDateTime(event) {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: TIMEZONE
   };
 
   const timeOptions = {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    timeZone: TIMEZONE
   };
 
   const eventDate = startDate.toLocaleDateString('en-US', dateOptions);
@@ -430,6 +438,8 @@ async function main() {
   console.log("╔════════════════════════════════════════════════════════╗");
   console.log("║  Event Access Email Sender                             ║");
   console.log("╚════════════════════════════════════════════════════════╝\n");
+
+  console.log(`🕐 Timezone: ${TIMEZONE} | Local time: ${new Date().toLocaleString("en-GB", { timeZone: TIMEZONE })}\n`);
 
   if (DRY_RUN) {
     console.log("🧪 DRY RUN MODE - No emails will be sent\n");

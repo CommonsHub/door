@@ -19,6 +19,12 @@ const serverDir = path.join(__dirname, "..");
 
 dotenv.config({ path: path.join(serverDir, ".env") });
 
+// Set default timezone to Europe/Brussels if not specified
+if (!process.env.TZ) {
+  process.env.TZ = "Europe/Brussels";
+}
+const TIMEZONE = process.env.TZ;
+
 // Configuration
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const DOOR_URL = process.env.DOOR_URL || "https://door.commonshub.brussels";
@@ -116,6 +122,8 @@ async function main() {
   console.log("║  Send Test Email                                       ║");
   console.log("╚════════════════════════════════════════════════════════╝\n");
 
+  console.log(`Timezone: ${TIMEZONE}\n`);
+
   const privateKey = getPrivateKey();
   if (!privateKey) {
     console.error("No private key found. Set PRIVATE_KEY in .env or create .privateKey file");
@@ -155,9 +163,10 @@ async function main() {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: TIMEZONE,
   });
 
-  const eventTime = `${startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} - ${endDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+  const eventTime = `${startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: TIMEZONE })} - ${endDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: TIMEZONE })}`;
 
   const eventUrl = "https://commonshub.brussels";
 

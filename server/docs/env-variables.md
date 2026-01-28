@@ -210,13 +210,13 @@ When set, emails are only sent to addresses in this list, even if other attendee
 
 ### `TZ`
 
-Node.js timezone setting.
+Timezone used for formatting dates and times in emails and logs.
 
 - **Required**: No
-- **Default**: System timezone
-- **Example**: `Europe/Brussels`
+- **Default**: `Europe/Brussels`
+- **Example**: `Europe/Paris`, `America/New_York`
 
-Logged at startup for debugging timezone-related issues.
+All scripts display the active timezone at startup. Event times in emails are formatted using this timezone.
 
 ---
 

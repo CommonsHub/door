@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+// Set default timezone to Europe/Brussels if not specified
+if (!process.env.TZ) {
+  process.env.TZ = "Europe/Brussels";
+}
+
 import {
   Client,
   GatewayIntentBits,
@@ -40,7 +45,7 @@ const funFacts = [];
 
 const d = new Date();
 console.log(">>> door started", d.toISOString());
-console.log(">>> current hour", d.getHours(), "Timezone:", process.env.TZ);
+console.log(">>> Timezone:", process.env.TZ, "| Local time:", d.toLocaleString("en-GB", { timeZone: process.env.TZ }));
 
 const rest = new REST({ version: "10" }).setToken(token);
 

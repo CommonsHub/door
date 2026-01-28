@@ -12,6 +12,12 @@ const serverDir = path.join(__dirname, "..");
 
 dotenv.config({ path: path.join(serverDir, ".env") });
 
+// Set default timezone to Europe/Brussels if not specified
+if (!process.env.TZ) {
+  process.env.TZ = "Europe/Brussels";
+}
+const TIMEZONE = process.env.TZ;
+
 function loadPrivateKeyFromFile() {
   const keyPath = path.join(serverDir, ".privateKey");
   try {
@@ -58,6 +64,8 @@ async function main() {
   console.log("\n╔════════════════════════════════════════════════════════╗");
   console.log("║  Door Access URL Generator                             ║");
   console.log("╚════════════════════════════════════════════════════════╝\n");
+
+  console.log(`Timezone: ${TIMEZONE}\n`);
 
   // Get private key from env, .privateKey file, or prompt
   let privateKey = process.env.PRIVATE_KEY;
@@ -120,7 +128,7 @@ async function main() {
   const startTime = Math.floor(Date.now() / 1000);
   const endTime = startTime + duration * 60;
 
-  console.log(`\nAccess window: Now -> ${new Date(endTime * 1000).toLocaleString()} (${formatDuration(duration)})`);
+  console.log(`\nAccess window: Now -> ${new Date(endTime * 1000).toLocaleString("en-GB", { timeZone: TIMEZONE })} (${formatDuration(duration)})`);
 
   // Generate signature
   const timestamp = Math.floor(Date.now() / 1000);
@@ -144,7 +152,7 @@ async function main() {
   console.log(`Name:       ${name}`);
   console.log(`Host:       ${host}`);
   console.log(`Reason:     ${reason}`);
-  console.log(`Valid:      Now - ${new Date(endTime * 1000).toLocaleString()}`);
+  console.log(`Valid:      Now - ${new Date(endTime * 1000).toLocaleString("en-GB", { timeZone: TIMEZONE })}`);
   console.log(`Duration:   ${formatDuration(duration)}`);
   console.log(`Signed by:  ${wallet.address}`);
   console.log("─────────────────────────────────────────────────────────\n");
