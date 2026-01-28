@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Test Wallet",
+    "publicKey": "0x14791697260E4c9A71f18484C9f997B308e59325",
+    "description": "Test wallet for development and testing signature-based access"
+  },
+  {
+    "name": "localhost osv",
+    "publicKey": "0x85CE77c5B802Dd0ADA34F2F049689e2014f801Bd",
+    "description": "Test wallet for osv development and testing signature-based access"
+  },
+  {
+    "name": "app.opensourcevillage.org",
+    "publicKey": "0xf77Bb6d61eb56B241DE4B90B449ecD31529Fe753",
+    "description": "Allow Open Source Village participants to open the door"
+  }
+]
