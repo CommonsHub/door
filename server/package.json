@@ -1,0 +1,32 @@
+{
+  "name": "door-control-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "build": "npm install",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:signature": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/signature-auth.test.js",
+    "test:discord": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/discord-access.test.js",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/discord-integration.test.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "testMatch": ["**/*.test.js"]
+  },
+  "dependencies": {
+    "@citizenwallet/sdk": "^2.0.44",
+    "@discordjs/rest": "^2.4.0",
+    "discord-api-types": "^0.37.105",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "express": "^4.18.2",
+    "marked": "^17.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0"
+  }
+}
