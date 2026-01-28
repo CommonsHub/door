@@ -21,7 +21,7 @@ export function generateCommonsHubPage({
   <title>${title}</title>
   ${
     isSuccess && eventUrl
-      ? `<meta http-equiv="refresh" content="3;url=${eventUrl}">`
+      ? `<meta http-equiv="refresh" content="8;url=${eventUrl}">`
       : ""
   }
   <style>
