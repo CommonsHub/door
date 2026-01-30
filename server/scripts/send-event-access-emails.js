@@ -146,10 +146,8 @@ async function fetchLumaEvents(date) {
       const startTime = new Date(event.start_at).getTime();
       const endTime = new Date(event.end_at).getTime();
 
-      // Include events that:
-      // 1. Start within the next hour AND
-      // 2. Haven't finished yet
-      return startTime <= oneHourFromNow && endTime > now;
+      // Include events that start within the next hour (but haven't started yet)
+      return startTime > now && startTime <= oneHourFromNow;
     });
 
     const finishedCount = allEvents.filter(e => new Date(e.event.end_at).getTime() <= now).length;
