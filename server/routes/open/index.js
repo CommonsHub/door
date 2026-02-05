@@ -73,9 +73,9 @@ export default function registerOpenRoutes(app, dependencies) {
         secretBypass: verification.secretBypass || false,
       });
 
-      // Send message to Discord channel with link to event (suppress preview)
+      // Send message to Discord channel with event name linked to Luma (suppress embed)
       const eventLink = req.query.eventUrl
-        ? `<${req.query.eventUrl}>`
+        ? `[${req.query.reason}](<${req.query.eventUrl}>)`
         : req.query.reason;
       await sendDiscordMessage(
         `🚪 ${req.query.name} opened the door for ${eventLink} hosted by ${req.query.host}`,
