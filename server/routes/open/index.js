@@ -21,7 +21,6 @@ export default function registerOpenRoutes(app, dependencies) {
     community,
     users,
     getTodayUsers,
-    guild,
     SECRET,
   } = dependencies;
 
@@ -166,7 +165,8 @@ export default function registerOpenRoutes(app, dependencies) {
       return res.status(403).send("Invalid token");
     }
 
-    // Get member from guild if available
+    // Access guild via getter (evaluated at request time, not registration time)
+    const guild = dependencies.guild;
     let member;
     let displayName = userid; // Fallback to userid
 
