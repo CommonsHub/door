@@ -18,12 +18,12 @@ export default function registerStatusRoute(app, dependencies) {
           "en-GB",
           {
             timeZone: "Europe/Brussels",
-          }
+          },
         );
         const elapsed = new Date() - new Date(lastLog.timestamp);
-        if (elapsed > 3500) {
+        if (elapsed > 4000) {
           status[ip] = `Offline since ${lastTimestamp} (${Math.round(
-            elapsed / 1000
+            elapsed / 1000,
           )}s ago)`;
         } else {
           status[ip] = `${lastLog.userAgent} online`;
